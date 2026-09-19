@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -48,11 +49,47 @@ fun FogWindowScreen(onBack: () -> Unit) {
     var t by remember { mutableStateOf(0L) }
     var wipes by remember { mutableStateOf(listOf<Offset>()) }
     var done by remember { mutableStateOf(false) }
+    var canvasW by remember { mutableStateOf(1080f) }
+    var canvasH by remember { mutableStateOf(2000f) }
     val dots = remember { List(46) { Triple(Random.nextFloat(), Random.nextFloat(), 0.04f + Random.nextFloat() * 0.08f) } }
 
+    // 覆盖率网格：擦亮约 80% 才结算
+    val gw = 24
+    val gh = 54
+    val grid = remember { BooleanArray(gw * gh) }
+    var cleared by remember { mutableStateOf(0) }
+    val wipePx = with(LocalDensity.current) { 44.dp.toPx() }
+    val percent = cleared * 100 / (gw * gh)
+
+    fun mark(p: Offset) {
+        if (canvasW <= 0f || canvasH <= 0f) return
+        val cellW = canvasW / gw
+        val cellH = canvasH / gh
+        val rad = wipePx * 0.95f
+        val minX = ((p.x - rad) / cellW).toInt().coerceIn(0, gw - 1)
+        val maxX = ((p.x + rad) / cellW).toInt().coerceIn(0, gw - 1)
+        val minY = ((p.y - rad) / cellH).toInt().coerceIn(0, gh - 1)
+        val maxY = ((p.y + rad) / cellH).toInt().coerceIn(0, gh - 1)
+        var add = 0
+        for (gy in minY..maxY) {
+            for (gx in minX..maxX) {
+                val cell = gy * gw + gx
+                if (!grid[cell]) {
+                    val ddx = (gx + 0.5f) * cellW - p.x
+                    val ddy = (gy + 0.5f) * cellH - p.y
+                    if (ddx * ddx + ddy * ddy <= rad * rad) {
+                        grid[cell] = true
+                        add++
+                    }
+                }
+            }
+        }
+        if (add > 0) cleared += add
+    }
+
     LaunchedEffect(Unit) { while (true) withFrameNanos { t = it } }
-    LaunchedEffect(wipes.size) {
-        if (!done && wipes.size >= 110) {
+    LaunchedEffect(cleared) {
+        if (!done && cleared >= (gw * gh * 4) / 5) {
             done = true
             SoundEngine.chime()
         }
@@ -113,18 +150,24 @@ fun FogWindowScreen(onBack: () -> Unit) {
                     detectDragGestures(
                         onDragStart = { pos ->
                             wipes = wipes + pos
+                            mark(pos)
                             SoundEngine.tick()
                         },
                     ) { change, _ ->
                         change.consume()
                         val p = change.position
                         val last = wipes.lastOrNull()
-                        if (last == null || (p - last).getDistance() > 8f) wipes = wipes + p
+                        if (last == null || (p - last).getDistance() > 8f) {
+                            wipes = wipes + p
+                            mark(p)
+                        }
                     }
                 },
         ) {
             val w = size.width
             val h = size.height
+            canvasW = w
+            canvasH = h
             drawRect(
                 Brush.verticalGradient(
                     listOf(
@@ -138,16 +181,8 @@ fun FogWindowScreen(onBack: () -> Unit) {
             }
             val r = 44.dp.toPx()
             wipes.forEach { p ->
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        listOf(Color.Black, Color.Black.copy(alpha = 0.85f), Color.Transparent),
-                        center = p,
-                        radius = r,
-                    ),
-                    radius = r,
-                    center = p,
-                    blendMode = BlendMode.Clear,
-                )
+                drawCircle(Color.Black, radius = r * 0.72f, center = p, blendMode = BlendMode.Clear)
+                drawCircle(Color.Black.copy(alpha = 0.5f), radius = r, center = p, blendMode = BlendMode.Clear)
             }
         }
 
@@ -156,7 +191,7 @@ fun FogWindowScreen(onBack: () -> Unit) {
             PlayHeader("雾窗画", "🌫️", onBack)
             Spacer(Modifier.height(2.dp))
             Text(
-                if (done) "窗明几净，心情也擦亮了 ☀️" else "拖动手指，擦一擦雾气",
+                if (done) "窗明几净，心情也擦亮了 ☀️" else "拖动手指擦一擦 · 已擦亮 $percent%",
                 fontSize = 14.sp,
                 color = SubInk,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -192,6 +227,8 @@ fun FogWindowScreen(onBack: () -> Unit) {
                         .background(Brush.linearGradient(listOf(Color(0xFFA78BDA), Color(0xFFF0A8BC))))
                         .bounceClickable {
                             wipes = emptyList()
+                            grid.fill(false)
+                            cleared = 0
                             done = false
                             SoundEngine.tick()
                         }

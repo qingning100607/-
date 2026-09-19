@@ -51,6 +51,7 @@ private class SkipCtl {
     var fromX = 0f
     var arcDx = 0f
     var arcH = 0f
+    var dir = 1
     var waitingAt = -1L
     var sinkStart = 0L
     val taps = ArrayList<Long>()
@@ -78,9 +79,17 @@ fun StoneSkipScreen(onBack: () -> Unit) {
         ripples = (ripples + Ripple(stoneX, now, minOf(skips, 6))).takeLast(24)
         ctl.waitingAt = -1L
         ctl.fromX = stoneX
-        var dx = canvasW * 0.30f * 0.93f.pow(skips.toFloat())
-        if (stoneX + dx > canvasW * 0.96f) dx = canvasW * 0.96f - stoneX
-        ctl.arcDx = dx.coerceAtLeast(canvasW * 0.07f)
+        var dx = (canvasW * 0.30f * 0.93f.pow(skips.toFloat())).coerceAtLeast(canvasW * 0.10f)
+        var target = stoneX + dx * ctl.dir
+        if (target > canvasW * 0.94f) {
+            ctl.dir = -1
+            target = stoneX - dx
+        } else if (target < canvasW * 0.06f) {
+            ctl.dir = 1
+            target = stoneX + dx
+        }
+        target = target.coerceIn(canvasW * 0.06f, canvasW * 0.94f)
+        ctl.arcDx = target - stoneX
         ctl.arcDur = ((1_000L - skips * 32L).coerceAtLeast(660L)) * 1_000_000L
         ctl.arcH = canvasH * (0.08f + rnd.nextFloat() * 0.04f)
         ctl.arcStart = now
@@ -98,6 +107,7 @@ fun StoneSkipScreen(onBack: () -> Unit) {
         ctl.arcDur = 1_050_000_000L
         ctl.arcStart = now
         ctl.waitingAt = -1L
+        ctl.dir = 1
         phase = StonePhase.FLY
         SoundEngine.pop()
     }
