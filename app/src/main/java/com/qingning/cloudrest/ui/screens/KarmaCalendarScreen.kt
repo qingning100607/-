@@ -31,12 +31,14 @@ import androidx.compose.ui.unit.sp
 import com.qingning.cloudrest.data.Store
 import com.qingning.cloudrest.ui.components.PlayHeader
 import com.qingning.cloudrest.ui.components.SoftCard
+import com.qingning.cloudrest.ui.components.TopFade
 import com.qingning.cloudrest.ui.components.bounceClickable
 import com.qingning.cloudrest.ui.theme.ChipBg
 import com.qingning.cloudrest.ui.theme.Ink
 import com.qingning.cloudrest.ui.theme.SubInk
 import com.qingning.cloudrest.ui.theme.SunsetBrush
 import com.qingning.cloudrest.ui.theme.screenBg
+import com.qingning.cloudrest.ui.theme.screenTopColor
 import java.util.Calendar
 
 /** 功德打卡日历：按天查看功德累计 */
@@ -47,11 +49,13 @@ fun KarmaCalendarScreen(onBack: () -> Unit) {
     var month by remember { mutableStateOf(today.get(Calendar.MONTH)) } // 0..11
     val map = Store.karmaMap(year, month + 1)
 
+    val scroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
             .fillMaxSize()
             .background(screenBg(Color(0xFFFBF3EF), Color(0xFFF3E6F4)))
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = 20.dp)
     ) {
         PlayHeader("功德日历", "📅", onBack)
@@ -168,5 +172,7 @@ fun KarmaCalendarScreen(onBack: () -> Unit) {
             }
         }
         Spacer(Modifier.height(24.dp))
+    }
+    TopFade(scroll, Modifier.align(Alignment.TopCenter), color = screenTopColor(Color(0xFFFBF3EF)))
     }
 }

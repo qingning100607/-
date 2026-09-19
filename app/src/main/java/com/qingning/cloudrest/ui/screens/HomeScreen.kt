@@ -45,8 +45,10 @@ import com.qingning.cloudrest.ui.AppSettings
 import com.qingning.cloudrest.ui.components.CloudPetCard
 import com.qingning.cloudrest.ui.components.SectionTitle
 import com.qingning.cloudrest.ui.components.SoftCard
+import com.qingning.cloudrest.ui.components.TopFade
 import com.qingning.cloudrest.ui.components.bounceClickable
 import com.qingning.cloudrest.ui.components.sharePoster
+import com.qingning.cloudrest.ui.theme.BackdropTopColor
 import com.qingning.cloudrest.ui.theme.ChipBg
 import com.qingning.cloudrest.ui.theme.Ink
 import com.qingning.cloudrest.ui.theme.RosePink
@@ -61,11 +63,13 @@ import java.util.Locale
 /** 休息厅：问候 + 每日一句 + 自然声混音台 */
 @Composable
 fun HomeScreen(onOpenKarmaCal: () -> Unit, onOpenFortune: () -> Unit, onOpenAchievements: () -> Unit) {
+    val scroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = 20.dp)
     ) {
         Spacer(Modifier.height(26.dp))
@@ -110,6 +114,8 @@ fun HomeScreen(onOpenKarmaCal: () -> Unit, onOpenFortune: () -> Unit, onOpenAchi
         Spacer(Modifier.height(10.dp))
         NookCard(onOpenKarmaCal, onOpenAchievements)
         Spacer(Modifier.height(24.dp))
+    }
+    TopFade(scroll, Modifier.align(Alignment.TopCenter).statusBarsPadding(), color = BackdropTopColor)
     }
 }
 
@@ -241,7 +247,7 @@ private fun ensureNotifyPermission(context: android.content.Context) {
 
 @Composable
 private fun QuoteCard() {
-    var quote by remember { mutableStateOf(Store.dailyQuote()) }
+    var quote by remember { mutableStateOf(Store.randomQuote()) }
     SoftCard(brush = SunsetBrushSoft) {
         Text(
             "「 $quote 」",
@@ -360,21 +366,7 @@ private fun SoundRow(ch: SoundType) {
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(ch.label, style = MaterialTheme.typography.titleMedium, color = Ink)
-                if (ch == SoundType.STREAM || ch == SoundType.NIGHT || ch == SoundType.CAFE || ch == SoundType.SNOW) {
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "NEW",
-                        fontSize = 9.sp,
-                        color = Color.White,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(RosePink)
-                            .padding(horizontal = 5.dp, vertical = 1.dp),
-                    )
-                }
-            }
+            Text(ch.label, style = MaterialTheme.typography.titleMedium, color = Ink)
             Text(if (on) "播放中" else "点击开启", fontSize = 12.sp, color = SubInk)
         }
         if (on) {

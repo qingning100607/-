@@ -4,10 +4,12 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -17,6 +19,8 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -29,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -264,5 +269,28 @@ fun Hint(text: String, modifier: Modifier = Modifier) {
         color = SubInk,
         lineHeight = 20.sp,
         modifier = modifier,
+    )
+}
+
+/** 滚动页顶部羽化：内容滑到顶时渐隐进背景色，避免生硬截断 */
+@Composable
+fun TopFade(
+    scroll: ScrollState,
+    modifier: Modifier = Modifier,
+    color: Color = Color.White,
+    fadeHeight: Dp = 30.dp,
+) {
+    val visible by remember { derivedStateOf { scroll.value > 3 } }
+    val fadeAlpha by animateFloatAsState(if (visible) 1f else 0f, tween(260), label = "topFade")
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(fadeHeight)
+            .graphicsLayer { this.alpha = fadeAlpha }
+            .background(
+                Brush.verticalGradient(
+                    listOf(color.copy(alpha = 0.95f), color.copy(alpha = 0f)),
+                ),
+            ),
     )
 }

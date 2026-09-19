@@ -49,6 +49,11 @@ object Store {
         get() = p().getLong("breath_rounds", 0)
         set(v) { p().edit().putLong("breath_rounds", v).apply() }
 
+    // 打水漂最高连跳纪录
+    var stoneBest: Int
+        get() = p().getInt("stone_best", 0)
+        set(v) { p().edit().putInt("stone_best", v).apply() }
+
     // 功德按日累计（功德打卡日历用）
     fun addKarma(n: Long = 1) {
         val k = "kday_" + todayKey()
@@ -225,15 +230,15 @@ object Store {
         "今晚月色真美，风也温柔。",
     )
 
-    /** 按日期固定的每日一句 */
-    fun dailyQuote(): String {
-        val cal = Calendar.getInstance()
-        val idx = (cal.get(Calendar.YEAR) * 366 + cal.get(Calendar.DAY_OF_YEAR)) % quotes.size
-        return quotes[idx]
-    }
+    /** 上一次给出的句子（换句/进入页面时避免连续重复） */
+    private var lastQuote: String? = null
 
+    /** 随机一句：每次进入页面独立随机；exclude 可指定要回避的句子 */
     fun randomQuote(exclude: String? = null): String {
-        val pool = if (exclude == null) quotes else quotes.filter { it != exclude }
-        return pool[(Math.random() * pool.size).toInt()]
+        val avoid = exclude ?: lastQuote
+        val pool = if (avoid == null) quotes else quotes.filter { it != avoid }
+        val picked = pool[(Math.random() * pool.size).toInt()]
+        lastQuote = picked
+        return picked
     }
 }

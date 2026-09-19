@@ -42,7 +42,9 @@ import androidx.compose.ui.unit.sp
 import com.qingning.cloudrest.audio.SoundEngine
 import com.qingning.cloudrest.data.Store
 import com.qingning.cloudrest.ui.components.SoftCard
+import com.qingning.cloudrest.ui.components.TopFade
 import com.qingning.cloudrest.ui.components.bounceClickable
+import com.qingning.cloudrest.ui.theme.BackdropTopColor
 import com.qingning.cloudrest.ui.theme.Ink
 import com.qingning.cloudrest.ui.theme.RosePink
 import com.qingning.cloudrest.ui.theme.SubInk
@@ -71,13 +73,15 @@ private val MoodReplies = listOf(
 fun MoodScreen() {
     val today = Store.todayKey()
     var mood by remember { mutableStateOf(Store.moodOf(today)) }
-    var quote by remember { mutableStateOf(Store.dailyQuote()) }
+    var quote by remember { mutableStateOf(Store.randomQuote()) }
 
+    val scroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = 20.dp)
     ) {
         Spacer(Modifier.height(26.dp))
@@ -150,6 +154,8 @@ fun MoodScreen() {
             }
         }
         Spacer(Modifier.height(20.dp))
+    }
+    TopFade(scroll, Modifier.align(Alignment.TopCenter).statusBarsPadding(), color = BackdropTopColor)
     }
 }
 

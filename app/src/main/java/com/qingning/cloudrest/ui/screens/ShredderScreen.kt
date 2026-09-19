@@ -45,10 +45,12 @@ import com.qingning.cloudrest.audio.SoundEngine
 import com.qingning.cloudrest.ui.AppSettings
 import com.qingning.cloudrest.data.Store
 import com.qingning.cloudrest.ui.components.PlayHeader
+import com.qingning.cloudrest.ui.components.TopFade
 import com.qingning.cloudrest.ui.components.bounceClickable
 import com.qingning.cloudrest.ui.theme.Ink
 import com.qingning.cloudrest.ui.theme.SubInk
 import com.qingning.cloudrest.ui.theme.SunsetBrush
+import com.qingning.cloudrest.ui.theme.screenTopColor
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
@@ -124,10 +126,11 @@ fun ShredderScreen(onBack: () -> Unit) {
             .fillMaxSize()
             .background(com.qingning.cloudrest.ui.theme.screenBg(Color(0xFFFBEFF2), Color(0xFFFBF3E8)))
     ) {
+        val scroll = rememberScrollState()
         Column(
             Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scroll)
                 .padding(horizontal = 20.dp)
         ) {
             PlayHeader("烦恼粉碎机", "🗑️", onBack)
@@ -237,5 +240,6 @@ fun ShredderScreen(onBack: () -> Unit) {
                 }
             }
         }
+    TopFade(scroll, Modifier.align(Alignment.TopCenter), color = screenTopColor(Color(0xFFFBEFF2)))
     }
 }

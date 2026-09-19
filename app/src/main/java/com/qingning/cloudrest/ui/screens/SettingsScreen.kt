@@ -51,6 +51,7 @@ import com.qingning.cloudrest.ui.AppSettings
 import com.qingning.cloudrest.ui.components.Hint
 import com.qingning.cloudrest.ui.components.PlayHeader
 import com.qingning.cloudrest.ui.components.SoftCard
+import com.qingning.cloudrest.ui.components.TopFade
 import com.qingning.cloudrest.ui.components.bounceClickable
 import com.qingning.cloudrest.ui.components.decodeSampledBitmap
 import com.qingning.cloudrest.ui.theme.ChipBg
@@ -59,6 +60,7 @@ import com.qingning.cloudrest.ui.theme.RosePink
 import com.qingning.cloudrest.ui.theme.SubInk
 import com.qingning.cloudrest.ui.theme.SunsetBrush
 import com.qingning.cloudrest.ui.theme.screenBg
+import com.qingning.cloudrest.ui.theme.screenTopColor
 import java.io.File
 
 @Composable
@@ -112,11 +114,13 @@ fun SettingsScreen(onBack: () -> Unit) {
         }
     }
 
+    val scroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
             .fillMaxSize()
             .background(screenBg(Color(0xFFFBF3EF), Color(0xFFF3E6F4)))
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = 20.dp)
     ) {
         PlayHeader("设置", "⚙️", onBack)
@@ -504,9 +508,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                 },
             )
             Spacer(Modifier.height(10.dp))
-            Hint("自然声与短音效均为真实录音采样（Wikimedia Commons：Mijesty / Luftrum / nille / Glaneur de sons / Jorge Stolfi / nevit / Amada44 / Styroks / Sharelk / Darklanlan / YanikB / Mathieu Kappler / Thore，CC0 · CC BY · CC BY-SA）；新增自然声：溪流（jackthemurray，CC0）、夜虫（Glaneur de sons，CC BY）、雪落（YanikB，CC BY）、咖啡馆（thore / Mathieu Kappler 剪辑合成）；木鱼敲击音为真实采样，音色可在「交互」里切换；Ciallo 语音为网络热门素材（锁车音效分享平台网友分享），仅作学习交流。愿你在这里歇得舒服。")
+            Hint("自然声与短音效均为真实录音采样（Wikimedia Commons：Mijesty / Luftrum / nille / Glaneur de sons / Jorge Stolfi / nevit / Amada44 / Styroks / Sharelk / Darklanlan / Mathieu Kappler / Thore，CC0 · CC BY · CC BY-SA）；新增自然声：溪流（jackthemurray，CC0）、夜虫（Glaneur de sons，CC BY）、雪落（Fabricio Cardenas，CC BY-SA）、咖啡馆（thore / Mathieu Kappler 剪辑合成）；木鱼敲击音为真实采样，音色可在「交互」里切换；Ciallo 语音为网络热门素材（锁车音效分享平台网友分享），仅作学习交流。愿你在这里歇得舒服。")
         }
         Spacer(Modifier.height(24.dp))
+    }
+    TopFade(scroll, Modifier.align(Alignment.TopCenter), color = screenTopColor(Color(0xFFFBF3EF)))
     }
 }
 

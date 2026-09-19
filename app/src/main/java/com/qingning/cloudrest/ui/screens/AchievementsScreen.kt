@@ -2,6 +2,7 @@ package com.qingning.cloudrest.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -23,11 +25,13 @@ import androidx.compose.ui.unit.sp
 import com.qingning.cloudrest.data.Store
 import com.qingning.cloudrest.ui.components.PlayHeader
 import com.qingning.cloudrest.ui.components.SoftCard
+import com.qingning.cloudrest.ui.components.TopFade
 import com.qingning.cloudrest.ui.theme.CardSurfaceBrush
 import com.qingning.cloudrest.ui.theme.ChipBg
 import com.qingning.cloudrest.ui.theme.Ink
 import com.qingning.cloudrest.ui.theme.SubInk
 import com.qingning.cloudrest.ui.theme.screenBg
+import com.qingning.cloudrest.ui.theme.screenTopColor
 
 internal data class Achievement(
     val emoji: String,
@@ -60,11 +64,13 @@ internal val ACHIEVEMENTS = listOf(
 @Composable
 fun AchievementsScreen(onBack: () -> Unit) {
     val unlocked = ACHIEVEMENTS.count { it.check() }
+    val scroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
             .fillMaxSize()
             .background(screenBg(Color(0xFFFBF3EF), Color(0xFFF3E6F4)))
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = 20.dp)
     ) {
         PlayHeader("成就墙", "🏅", onBack)
@@ -86,6 +92,8 @@ fun AchievementsScreen(onBack: () -> Unit) {
             Spacer(Modifier.height(12.dp))
         }
         Spacer(Modifier.height(24.dp))
+    }
+    TopFade(scroll, Modifier.align(Alignment.TopCenter), color = screenTopColor(Color(0xFFFBF3EF)))
     }
 }
 

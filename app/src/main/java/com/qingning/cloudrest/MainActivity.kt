@@ -63,7 +63,9 @@ import com.qingning.cloudrest.ui.screens.AchievementsScreen
 import com.qingning.cloudrest.ui.screens.BreathingScreen
 import com.qingning.cloudrest.ui.screens.BubbleWrapScreen
 import com.qingning.cloudrest.ui.screens.CialloScreen
+import com.qingning.cloudrest.ui.screens.DandelionScreen
 import com.qingning.cloudrest.ui.screens.FireworkScreen
+import com.qingning.cloudrest.ui.screens.FogWindowScreen
 import com.qingning.cloudrest.ui.screens.FortuneScreen
 import com.qingning.cloudrest.ui.screens.HomeScreen
 import com.qingning.cloudrest.ui.screens.IceBreakScreen
@@ -73,6 +75,7 @@ import com.qingning.cloudrest.ui.screens.MuyuScreen
 import com.qingning.cloudrest.ui.screens.RelaxScreen
 import com.qingning.cloudrest.ui.screens.SettingsScreen
 import com.qingning.cloudrest.ui.screens.ShredderScreen
+import com.qingning.cloudrest.ui.screens.StoneSkipScreen
 import com.qingning.cloudrest.ui.theme.CloudTheme
 import com.qingning.cloudrest.ui.theme.GlassBg
 import com.qingning.cloudrest.ui.theme.Ink
@@ -121,7 +124,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-enum class PlayPage { NONE, BUBBLE, MUYU, FIREWORK, ICE, SHRED, KARMA, BREATH, FORTUNE, ACHIEVEMENTS }
+enum class PlayPage { NONE, BUBBLE, MUYU, FIREWORK, ICE, SHRED, KARMA, BREATH, FORTUNE, ACHIEVEMENTS, FOG, DANDELION, STONE }
 
 @Composable
 fun CloudApp(initialOpen: String? = null, consumeOpen: () -> Unit = {}) {
@@ -309,6 +312,9 @@ fun CloudApp(initialOpen: String? = null, consumeOpen: () -> Unit = {}) {
                     play == PlayPage.FIREWORK -> FireworkScreen { closeOverlay() }
                     play == PlayPage.ICE -> IceBreakScreen { closeOverlay() }
                     play == PlayPage.SHRED -> ShredderScreen { closeOverlay() }
+                    play == PlayPage.FOG -> FogWindowScreen { closeOverlay() }
+                    play == PlayPage.DANDELION -> DandelionScreen { closeOverlay() }
+                    play == PlayPage.STONE -> StoneSkipScreen { closeOverlay() }
                     play == PlayPage.KARMA -> KarmaCalendarScreen { closeOverlay() }
                     play == PlayPage.BREATH -> BreathingScreen { closeOverlay() }
                     play == PlayPage.FORTUNE -> FortuneScreen { closeOverlay() }
@@ -325,7 +331,7 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
     val items = listOf(
         Triple("☁️", "休息厅", 0),
         Triple("🫧", "解压铺", 1),
-        Triple("⭐", "CIALLO", 2),
+        Triple("⭐", "Ciallo", 2),
         Triple("💗", "心情站", 3),
     )
     val density = LocalDensity.current

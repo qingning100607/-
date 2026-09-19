@@ -60,7 +60,7 @@ private data class Burst(
     val born: Long,
 )
 
-/** CIALLO 电台：原站滚动文字秀的原生复刻 + 点击爆发 */
+/** Ciallo 电台：原站滚动文字秀的原生复刻 + 点击爆发 */
 @Composable
 fun CialloScreen() {
     val bgTop = if (com.qingning.cloudrest.ui.AppSettings.deepNight) Color(0xFF1F1A30) else Color(0xFFFFF9F2)
@@ -175,7 +175,7 @@ fun CialloScreen() {
                 .padding(top = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("CIALLO 电台", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Ink)
+            Text("Ciallo 电台", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Ink)
             Spacer(Modifier.height(4.dp))
             Text("Ciallo～(∠・ω< )⌒☆", fontSize = 12.sp, color = SubInk)
         }

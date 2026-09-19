@@ -3,6 +3,7 @@ package com.qingning.cloudrest.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,18 +33,22 @@ import com.qingning.cloudrest.PlayPage
 import com.qingning.cloudrest.data.Store
 import com.qingning.cloudrest.ui.components.MuyuGlyph
 import com.qingning.cloudrest.ui.components.SoftCard
+import com.qingning.cloudrest.ui.components.TopFade
 import com.qingning.cloudrest.ui.components.bounceClickable
+import com.qingning.cloudrest.ui.theme.BackdropTopColor
 import com.qingning.cloudrest.ui.theme.Ink
 import com.qingning.cloudrest.ui.theme.SubInk
 
-/** 解压铺：五个小玩法入口 + 战绩 */
+/** 解压铺：八个小玩法入口 + 战绩 */
 @Composable
 fun RelaxScreen(onOpen: (PlayPage) -> Unit) {
+    val scroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = 20.dp)
     ) {
         Spacer(Modifier.height(26.dp))
@@ -58,6 +63,9 @@ fun RelaxScreen(onOpen: (PlayPage) -> Unit) {
             Game("🎆", "烟花手账", "指尖绽放一整片夜空", PlayPage.FIREWORK, Brush.linearGradient(listOf(Color(0xFF7B6CA8), Color(0xFFA78BDA)))),
             Game("🧊", "敲冰块", "咔啦一声，烦恼碎裂", PlayPage.ICE, Brush.linearGradient(listOf(Color(0xFFA8C8F0), Color(0xFFC9E4F5)))),
             Game("🗑️", "烦恼粉碎机", "写下来，亲手粉碎它", PlayPage.SHRED, Brush.linearGradient(listOf(Color(0xFFF0A8BC), Color(0xFFFFC9A3)))),
+            Game("🌫️", "雾窗画", "擦一擦，窗外是温柔的晚霞", PlayPage.FOG, Brush.linearGradient(listOf(Color(0xFF8FA8C8), Color(0xFFB8D0E0)))),
+            Game("🌼", "吹蒲公英", "轻轻一点，烦恼飘向远方", PlayPage.DANDELION, Brush.linearGradient(listOf(Color(0xFFA8D8B0), Color(0xFFD8E8A8)))),
+            Game("🌊", "打水漂", "看准落水那一下，跳！", PlayPage.STONE, Brush.linearGradient(listOf(Color(0xFF6FB8C8), Color(0xFFA8D8E0)))),
         )
 
         games.chunked(2).forEach { rowItems ->
@@ -85,6 +93,8 @@ fun RelaxScreen(onOpen: (PlayPage) -> Unit) {
         Spacer(Modifier.height(12.dp))
         ComingSoonCard()
         Spacer(Modifier.height(24.dp))
+    }
+    TopFade(scroll, Modifier.align(Alignment.TopCenter).statusBarsPadding(), color = BackdropTopColor)
     }
 }
 

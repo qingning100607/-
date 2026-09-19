@@ -55,6 +55,12 @@ fun screenBg(top: Color, bottom: Color): Brush = if (isNight) {
     Brush.verticalGradient(listOf(seasonBlend(top), seasonBlend(bottom)))
 }
 
+/** 顶部羽化底色：与全局 Backdrop 顶部一致（首页类滚动页用） */
+val BackdropTopColor: Color get() = seasonBlend(if (isNight) Color(0xFF1D1830) else Color(0xFFFBF3EF))
+
+/** 顶部羽化底色：与自定义页面背景顶部一致（设置/成就等页面用） */
+fun screenTopColor(top: Color): Color = if (isNight) seasonBlend(Color(0xFF201A2E)) else seasonBlend(top)
+
 /** 季节主题名（off / spring / summer / autumn / winter） */
 val seasonName: String get() = AppSettings.season
 
