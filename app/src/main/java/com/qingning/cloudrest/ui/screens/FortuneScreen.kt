@@ -6,12 +6,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -27,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -38,6 +41,7 @@ import com.qingning.cloudrest.ui.AppSettings
 import com.qingning.cloudrest.ui.components.PlayHeader
 import com.qingning.cloudrest.ui.components.SoftCard
 import com.qingning.cloudrest.ui.components.bounceClickable
+import com.qingning.cloudrest.ui.components.shareFortunePoster
 import com.qingning.cloudrest.ui.theme.Ink
 import com.qingning.cloudrest.ui.theme.RosePink
 import com.qingning.cloudrest.ui.theme.SubInk
@@ -72,6 +76,7 @@ internal val FORTUNE_SLIPS = listOf(
 @Composable
 fun FortuneScreen(onBack: () -> Unit) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var drawn by remember { mutableStateOf(Store.fortuneOf(Store.todayKey())) }
     var justDrawn by remember { mutableStateOf(false) }
@@ -162,23 +167,45 @@ fun FortuneScreen(onBack: () -> Unit) {
         Spacer(Modifier.weight(1f))
 
         if (drawn >= 0) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(SunsetBrush)
-                    .bounceClickable {
-                        SoundEngine.tick()
-                        onBack()
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "收下这份好运",
-                    fontSize = 15.sp,
-                    color = Color.White,
-                    modifier = Modifier.padding(vertical = 13.dp),
-                )
+            val slip = FORTUNE_SLIPS[drawn.coerceIn(0, FORTUNE_SLIPS.size - 1)]
+            Row(Modifier.fillMaxWidth()) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(SunsetBrushSoft)
+                        .bounceClickable {
+                            SoundEngine.tick()
+                            shareFortunePoster(context, slip)
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "📤 分享云签",
+                        fontSize = 14.sp,
+                        color = Color.White,
+                        modifier = Modifier.padding(vertical = 13.dp),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(SunsetBrush)
+                        .bounceClickable {
+                            SoundEngine.tick()
+                            onBack()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "收下这份好运",
+                        fontSize = 14.sp,
+                        color = Color.White,
+                        modifier = Modifier.padding(vertical = 13.dp),
+                    )
+                }
             }
         }
         Spacer(Modifier.height(24.dp))

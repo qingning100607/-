@@ -1,5 +1,6 @@
 package com.qingning.cloudrest
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -47,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,6 +59,7 @@ import com.qingning.cloudrest.ui.AppSettings
 import com.qingning.cloudrest.ui.UiTransit
 import com.qingning.cloudrest.ui.components.AppBackdrop
 import com.qingning.cloudrest.ui.components.bounceClickable
+import com.qingning.cloudrest.ui.screens.AchievementsScreen
 import com.qingning.cloudrest.ui.screens.BreathingScreen
 import com.qingning.cloudrest.ui.screens.BubbleWrapScreen
 import com.qingning.cloudrest.ui.screens.CialloScreen
@@ -75,28 +78,40 @@ import com.qingning.cloudrest.ui.theme.GlassBg
 import com.qingning.cloudrest.ui.theme.Ink
 import com.qingning.cloudrest.ui.theme.SubInk
 import com.qingning.cloudrest.ui.theme.SunsetBrush
+import com.qingning.cloudrest.widget.CloudWidget
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private var pendingOpen by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Store.init(this)
         AppSettings.init(this)
         SoundEngine.init(applicationContext)
         CrashGuard.install(applicationContext)
+        pendingOpen = intent.getStringExtra("open")
         enableEdgeToEdge()
         setContent {
             CloudTheme {
-                CloudApp()
+                CloudApp(initialOpen = pendingOpen, consumeOpen = { pendingOpen = null })
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingOpen = intent.getStringExtra("open")
     }
 
     override fun onResume() {
         super.onResume()
         SoundEngine.warm()
+        CloudWidget.refresh(this)
     }
 
     override fun onDestroy() {
@@ -106,15 +121,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-enum class PlayPage { NONE, BUBBLE, MUYU, FIREWORK, ICE, SHRED, KARMA, BREATH, FORTUNE }
+enum class PlayPage { NONE, BUBBLE, MUYU, FIREWORK, ICE, SHRED, KARMA, BREATH, FORTUNE, ACHIEVEMENTS }
 
 @Composable
-fun CloudApp() {
+fun CloudApp(initialOpen: String? = null, consumeOpen: () -> Unit = {}) {
     var tab by remember { mutableStateOf(0) }
     var play by remember { mutableStateOf(PlayPage.NONE) }
     var settingsOpen by remember { mutableStateOf(false) }
     val overlayOpen = settingsOpen || play != PlayPage.NONE
 
+    val appCtx = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
     // 图层横向偏移（px）：0 = 完全显示，宽 = 滑出屏幕右侧
     val offsetX = remember { Animatable(0f) }
@@ -130,6 +146,7 @@ fun CloudApp() {
                 settingsOpen = false
                 play = PlayPage.NONE
                 offsetX.snapTo(0f)
+                CloudWidget.refresh(appCtx)
             } finally {
                 UiTransit.busy = false
             }
@@ -147,6 +164,25 @@ fun CloudApp() {
             } finally {
                 UiTransit.busy = false
             }
+        }
+    }
+
+    // 外部入口（桌面小组件 / 快捷磁贴）：打开指定页面
+    LaunchedEffect(initialOpen) {
+        val open = initialOpen ?: return@LaunchedEffect
+        when (open) {
+            "fortune" -> openOverlay { play = PlayPage.FORTUNE }
+            "breath" -> openOverlay { play = PlayPage.BREATH }
+            "achievements" -> openOverlay { play = PlayPage.ACHIEVEMENTS }
+        }
+        consumeOpen()
+    }
+
+    // 自动夜间：每 30 秒检查一次，跨过 22:00 / 7:00 自动切换
+    LaunchedEffect(Unit) {
+        while (true) {
+            AppSettings.autoNightTick()
+            delay(30_000)
         }
     }
 
@@ -217,6 +253,7 @@ fun CloudApp() {
                             0 -> HomeScreen(
                                 onOpenKarmaCal = { openOverlay { play = PlayPage.KARMA } },
                                 onOpenFortune = { openOverlay { play = PlayPage.FORTUNE } },
+                                onOpenAchievements = { openOverlay { play = PlayPage.ACHIEVEMENTS } },
                             )
                             1 -> RelaxScreen { page -> openOverlay { play = page } }
                             2 -> CialloScreen()
@@ -275,6 +312,7 @@ fun CloudApp() {
                     play == PlayPage.KARMA -> KarmaCalendarScreen { closeOverlay() }
                     play == PlayPage.BREATH -> BreathingScreen { closeOverlay() }
                     play == PlayPage.FORTUNE -> FortuneScreen { closeOverlay() }
+                    play == PlayPage.ACHIEVEMENTS -> AchievementsScreen { closeOverlay() }
                     else -> {}
                 }
             }

@@ -141,6 +141,52 @@ fun SettingsScreen(onBack: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("自动夜间", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Ink)
+                    Spacer(Modifier.height(3.dp))
+                    Hint("22:00 后自动切换深色，早晨自动切回")
+                }
+                Switch(
+                    checked = AppSettings.autoNight,
+                    onCheckedChange = {
+                        AppSettings.updateAutoNight(it)
+                        SoundEngine.tick()
+                    },
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+            Text("季节主题", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Ink)
+            Spacer(Modifier.height(3.dp))
+            Hint("给整个界面换上季节色（春樱 / 夏夜 / 秋桂 / 冬雪）")
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth()) {
+                TonePill("默认", AppSettings.season == "off") {
+                    AppSettings.updateSeason("off")
+                    SoundEngine.tick()
+                }
+                Spacer(Modifier.width(6.dp))
+                TonePill("春樱", AppSettings.season == "spring") {
+                    AppSettings.updateSeason("spring")
+                    SoundEngine.tick()
+                }
+                Spacer(Modifier.width(6.dp))
+                TonePill("夏夜", AppSettings.season == "summer") {
+                    AppSettings.updateSeason("summer")
+                    SoundEngine.tick()
+                }
+                Spacer(Modifier.width(6.dp))
+                TonePill("秋桂", AppSettings.season == "autumn") {
+                    AppSettings.updateSeason("autumn")
+                    SoundEngine.tick()
+                }
+                Spacer(Modifier.width(6.dp))
+                TonePill("冬雪", AppSettings.season == "winter") {
+                    AppSettings.updateSeason("winter")
+                    SoundEngine.tick()
+                }
+            }
+            Spacer(Modifier.height(14.dp))
             val bg = AppSettings.bgPath
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (bg != null) {
@@ -268,6 +314,21 @@ fun SettingsScreen(onBack: () -> Unit) {
                     AppSettings.updateMuyuTone("soft")
                     SoundEngine.muyu()
                 }
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("呼吸钵音引导", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Ink)
+                    Spacer(Modifier.height(3.dp))
+                    Hint("呼吸练习每个阶段切换时轻响一声钵音")
+                }
+                Switch(
+                    checked = AppSettings.bellGuide,
+                    onCheckedChange = {
+                        AppSettings.updateBellGuide(it)
+                        SoundEngine.tick()
+                    },
+                )
             }
         }
 
@@ -443,7 +504,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 },
             )
             Spacer(Modifier.height(10.dp))
-            Hint("自然声与短音效均为真实录音采样（Wikimedia Commons：Mijesty / Luftrum / nille / Glaneur de sons / Jorge Stolfi / nevit / Amada44 / Styroks / Sharelk / Darklanlan，CC0 · CC BY · CC BY-SA）；木鱼敲击音为真实采样，音色可在「交互」里切换；Ciallo 语音为网络热门素材（锁车音效分享平台网友分享），仅作学习交流。愿你在这里歇得舒服。")
+            Hint("自然声与短音效均为真实录音采样（Wikimedia Commons：Mijesty / Luftrum / nille / Glaneur de sons / Jorge Stolfi / nevit / Amada44 / Styroks / Sharelk / Darklanlan / YanikB / Mathieu Kappler / Thore，CC0 · CC BY · CC BY-SA）；新增自然声：溪流（jackthemurray，CC0）、夜虫（Glaneur de sons，CC BY）、雪落（YanikB，CC BY）、咖啡馆（thore / Mathieu Kappler 剪辑合成）；木鱼敲击音为真实采样，音色可在「交互」里切换；Ciallo 语音为网络热门素材（锁车音效分享平台网友分享），仅作学习交流。愿你在这里歇得舒服。")
         }
         Spacer(Modifier.height(24.dp))
     }

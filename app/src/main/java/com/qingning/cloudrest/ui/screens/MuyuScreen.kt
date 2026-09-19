@@ -120,6 +120,7 @@ fun MuyuScreen(onBack: () -> Unit) {
                         val now = System.nanoTime()
                         karma++
                         Store.addKarma(1)
+                        Store.muyu += 1
                         SoundEngine.muyu()
                         if (AppSettings.hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         lastHit = now

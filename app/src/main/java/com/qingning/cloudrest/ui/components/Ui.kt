@@ -56,6 +56,7 @@ import com.qingning.cloudrest.ui.theme.CardBorderColor
 import com.qingning.cloudrest.ui.theme.CardSurfaceBrush
 import com.qingning.cloudrest.ui.theme.Ink
 import com.qingning.cloudrest.ui.theme.SubInk
+import com.qingning.cloudrest.ui.theme.seasonBlend
 import java.io.File
 import kotlin.math.PI
 import kotlin.math.cos
@@ -126,23 +127,27 @@ fun Backdrop(modifier: Modifier = Modifier) {
     Canvas(modifier.fillMaxSize()) {
         val night = AppSettings.deepNight
         drawRect(
-            if (night) Brush.verticalGradient(listOf(Color(0xFF1D1830), Color(0xFF2A223A)))
-            else Brush.verticalGradient(listOf(Color(0xFFFBF3EF), Color(0xFFF3E6F4)))
+            if (night) Brush.verticalGradient(
+                listOf(seasonBlend(Color(0xFF1D1830)), seasonBlend(Color(0xFF2A223A)))
+            )
+            else Brush.verticalGradient(
+                listOf(seasonBlend(Color(0xFFFBF3EF)), seasonBlend(Color(0xFFF3E6F4)))
+            )
         )
         val w = size.width
         val h = size.height
         drawCircle(
-            Brush.radialGradient(listOf(Color(0x4DFFC9A3), Color.Transparent)),
+            Brush.radialGradient(listOf(seasonBlend(Color(0x4DFFC9A3), 0.35f), Color.Transparent)),
             radius = w * 0.65f,
             center = androidx.compose.ui.geometry.Offset(w * (0.15f + 0.35f * shift), h * 0.12f),
         )
         drawCircle(
-            Brush.radialGradient(listOf(Color(0x40A78BDA), Color.Transparent)),
+            Brush.radialGradient(listOf(seasonBlend(Color(0x40A78BDA), 0.35f), Color.Transparent)),
             radius = w * 0.75f,
             center = androidx.compose.ui.geometry.Offset(w * (0.85f - 0.35f * shift), h * 0.38f),
         )
         drawCircle(
-            Brush.radialGradient(listOf(Color(0x45F0A8BC), Color.Transparent)),
+            Brush.radialGradient(listOf(seasonBlend(Color(0x45F0A8BC), 0.35f), Color.Transparent)),
             radius = w * 0.6f,
             center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * (0.82f + 0.08f * shift)),
         )

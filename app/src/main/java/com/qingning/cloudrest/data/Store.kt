@@ -39,6 +39,16 @@ object Store {
         get() = p().getInt("ice_broken", 0)
         set(v) { p().edit().putInt("ice_broken", v).apply() }
 
+    // 木鱼累计敲击次数
+    var muyu: Long
+        get() = p().getLong("muyu", 0)
+        set(v) { p().edit().putLong("muyu", v).apply() }
+
+    // 呼吸引导完成轮次
+    var breathRounds: Long
+        get() = p().getLong("breath_rounds", 0)
+        set(v) { p().edit().putLong("breath_rounds", v).apply() }
+
     // 功德按日累计（功德打卡日历用）
     fun addKarma(n: Long = 1) {
         val k = "kday_" + todayKey()
@@ -85,6 +95,31 @@ object Store {
 
     fun setFortune(dateKey: String, idx: Int) {
         p().edit().putInt("fortune_$dateKey", idx).apply()
+    }
+
+    /** 累计抽签天数（成就用） */
+    fun fortuneDays(): Int = p().all.entries.count { it.key.startsWith("fortune_") && (it.value as? Int ?: -1) >= 0 }
+
+    // 云朵小精灵：上次见面时间戳
+    fun petLastSeen(): Long = p().getLong("pet_last_seen", 0L)
+    fun setPetLastSeen(t: Long) { p().edit().putLong("pet_last_seen", t).apply() }
+
+    // 音景预设：每行一条 "名字\tspec"
+    fun scenes(): List<Pair<String, String>> =
+        (p().getString("scenes", "") ?: "").split("\n").mapNotNull { line ->
+            val i = line.indexOf('\t')
+            if (i <= 0) null else line.substring(0, i) to line.substring(i + 1)
+        }
+
+    fun saveScene(name: String, spec: String) {
+        val list = scenes().filter { it.first != name }.toMutableList()
+        list.add(name to spec)
+        p().edit().putString("scenes", list.joinToString("\n") { it.first + "\t" + it.second }).apply()
+    }
+
+    fun deleteScene(name: String) {
+        val rest = scenes().filter { it.first != name }
+        p().edit().putString("scenes", rest.joinToString("\n") { it.first + "\t" + it.second }).apply()
     }
 
     fun moodMap(year: Int, month: Int): Map<String, Int> {

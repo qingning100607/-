@@ -155,9 +155,9 @@ private fun BreathingBanner(onClick: () -> Unit) {
         Text("🌙", fontSize = 30.sp)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text("4-7-8 呼吸引导", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Text("呼吸引导", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             Spacer(Modifier.height(2.dp))
-            Text("吸气 4 秒 · 屏息 7 秒 · 呼气 8 秒，慢慢松下来", fontSize = 12.sp, color = Color(0xE6FFFFFF))
+            Text("4-7-8 助眠 / 箱式 / 舒缓 4-6 · 三档节奏任选", fontSize = 12.sp, color = Color(0xE6FFFFFF))
         }
         Text("→", fontSize = 18.sp, color = Color(0xE6FFFFFF))
     }

@@ -18,9 +18,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +41,8 @@ import androidx.compose.ui.unit.sp
 import com.qingning.cloudrest.audio.SoundEngine
 import com.qingning.cloudrest.audio.SoundType
 import com.qingning.cloudrest.data.Store
+import com.qingning.cloudrest.ui.AppSettings
+import com.qingning.cloudrest.ui.components.CloudPetCard
 import com.qingning.cloudrest.ui.components.SectionTitle
 import com.qingning.cloudrest.ui.components.SoftCard
 import com.qingning.cloudrest.ui.components.bounceClickable
@@ -55,7 +60,7 @@ import java.util.Locale
 
 /** 休息厅：问候 + 每日一句 + 自然声混音台 */
 @Composable
-fun HomeScreen(onOpenKarmaCal: () -> Unit, onOpenFortune: () -> Unit) {
+fun HomeScreen(onOpenKarmaCal: () -> Unit, onOpenFortune: () -> Unit, onOpenAchievements: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
@@ -86,6 +91,8 @@ fun HomeScreen(onOpenKarmaCal: () -> Unit, onOpenFortune: () -> Unit) {
         QuoteCard()
         Spacer(Modifier.height(14.dp))
         FortuneCard(onOpenFortune)
+        Spacer(Modifier.height(14.dp))
+        CloudPetCard()
         Spacer(Modifier.height(22.dp))
         SectionTitle("自然声")
         Spacer(Modifier.height(10.dp))
@@ -101,13 +108,13 @@ fun HomeScreen(onOpenKarmaCal: () -> Unit, onOpenFortune: () -> Unit) {
         Spacer(Modifier.height(20.dp))
         SectionTitle("我的小窝")
         Spacer(Modifier.height(10.dp))
-        NookCard(onOpenKarmaCal)
+        NookCard(onOpenKarmaCal, onOpenAchievements)
         Spacer(Modifier.height(24.dp))
     }
 }
 
 @Composable
-private fun NookCard(onOpenKarmaCal: () -> Unit) {
+private fun NookCard(onOpenKarmaCal: () -> Unit, onOpenAchievements: () -> Unit) {
     val ctx = LocalContext.current
     SoftCard {
         Text(
@@ -131,12 +138,31 @@ private fun NookCard(onOpenKarmaCal: () -> Unit) {
             ) {
                 Text(
                     "📅 功德日历",
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     color = Color.White,
                     modifier = Modifier.padding(vertical = 11.dp),
                 )
             }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(SunsetBrushSoft)
+                    .bounceClickable {
+                        SoundEngine.tick()
+                        onOpenAchievements()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "🏅 成就墙",
+                    fontSize = 12.sp,
+                    color = Color.White,
+                    modifier = Modifier.padding(vertical = 11.dp),
+                )
+            }
+            Spacer(Modifier.width(8.dp))
             Box(
                 Modifier
                     .weight(1f)
@@ -150,7 +176,7 @@ private fun NookCard(onOpenKarmaCal: () -> Unit) {
             ) {
                 Text(
                     "📤 分享战绩",
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     color = Color.White,
                     modifier = Modifier.padding(vertical = 11.dp),
                 )
@@ -261,6 +287,7 @@ private fun SoundCard() {
             SoundRow(ch)
             Spacer(Modifier.height(10.dp))
         }
+        SceneSection(onTimerSet = { timerOption = it })
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("定时关闭", style = MaterialTheme.typography.bodyMedium, color = SubInk)
@@ -314,8 +341,8 @@ private fun SoundCard() {
 @Composable
 private fun SoundRow(ch: SoundType) {
     val ctx = LocalContext.current
-    var on by remember { mutableStateOf(false) }
-    var gain by remember { mutableStateOf(0.7f) }
+    var on by remember { mutableStateOf(SoundEngine.channelOn[ch] == true) }
+    var gain by remember { mutableStateOf(SoundEngine.channelGain[ch] ?: 0.7f) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
@@ -333,7 +360,21 @@ private fun SoundRow(ch: SoundType) {
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(ch.label, style = MaterialTheme.typography.titleMedium, color = Ink)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(ch.label, style = MaterialTheme.typography.titleMedium, color = Ink)
+                if (ch == SoundType.STREAM || ch == SoundType.NIGHT || ch == SoundType.CAFE || ch == SoundType.SNOW) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "NEW",
+                        fontSize = 9.sp,
+                        color = Color.White,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(RosePink)
+                            .padding(horizontal = 5.dp, vertical = 1.dp),
+                    )
+                }
+            }
             Text(if (on) "播放中" else "点击开启", fontSize = 12.sp, color = SubInk)
         }
         if (on) {
@@ -348,5 +389,106 @@ private fun SoundRow(ch: SoundType) {
                     .padding(start = 8.dp),
             )
         }
+    }
+}
+
+/** 一键音景：睡前模式 / 我的音景 / 存为音景 */
+@Composable
+private fun SceneSection(onTimerSet: (Int) -> Unit) {
+    var scenes by remember { mutableStateOf(Store.scenes()) }
+    var editing by remember { mutableStateOf(false) }
+    var showSave by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var hint by remember { mutableStateOf("") }
+
+    Spacer(Modifier.height(2.dp))
+    Text("一键音景", fontSize = 13.sp, color = SubInk, modifier = Modifier.padding(start = 4.dp))
+    Spacer(Modifier.height(8.dp))
+    Row(Modifier.fillMaxWidth()) {
+        SceneChip("🌙 睡前模式", Modifier.weight(1f)) {
+            SoundEngine.applyScene(mapOf(SoundType.RAIN to 0.8f))
+            SoundEngine.scheduleStopAfter(30)
+            AppSettings.updateDeepNight(true)
+            onTimerSet(30)
+            hint = "已开启睡前模式：雨声 + 30 分钟后渐弱"
+        }
+        Spacer(Modifier.width(8.dp))
+        SceneChip(if (editing) "✅ 完成" else "✏️ 管理", Modifier.weight(1f)) {
+            editing = !editing
+            hint = if (editing) "点一下音景即可删除" else ""
+        }
+    }
+    scenes.chunked(2).forEach { rowItems ->
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth()) {
+            rowItems.forEach { (n, spec) ->
+                SceneChip(if (editing) "✕ $n" else "🎐 $n", Modifier.weight(1f)) {
+                    if (editing) {
+                        Store.deleteScene(n)
+                        scenes = Store.scenes()
+                        hint = "已删除「$n」"
+                    } else {
+                        SoundEngine.applyScene(SoundEngine.decodeScene(spec))
+                        hint = "已切换到「$n」"
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    SceneChip("＋ 把当前混音存为音景", Modifier.fillMaxWidth()) {
+        if (!SoundEngine.anyOn()) {
+            hint = "先开启至少一个声音，再保存音景哦"
+        } else {
+            showSave = true
+        }
+    }
+    if (hint.isNotEmpty()) {
+        Spacer(Modifier.height(6.dp))
+        Text(hint, fontSize = 11.sp, color = RosePink, modifier = Modifier.padding(start = 4.dp))
+    }
+    if (showSave) {
+        AlertDialog(
+            onDismissRequest = { showSave = false },
+            title = { Text("命名音景") },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    placeholder = { Text("如：雨夜书房") },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val nm = name.trim().ifEmpty { "我的音景" }
+                    Store.saveScene(nm, SoundEngine.encodeScene())
+                    scenes = Store.scenes()
+                    name = ""
+                    showSave = false
+                    hint = "已保存「$nm」"
+                    SoundEngine.tick()
+                }) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSave = false }) { Text("取消") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun SceneChip(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(ChipBg)
+            .bounceClickable(onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, fontSize = 12.sp, color = Ink, maxLines = 1)
     }
 }

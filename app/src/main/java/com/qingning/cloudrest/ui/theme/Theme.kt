@@ -48,13 +48,41 @@ val CardSurfaceBrush: Brush get() = if (isNight) {
 
 /** 页面背景：浅色沿用各页晚霞色调，夜间统一切到夜幕色 */
 fun screenBg(top: Color, bottom: Color): Brush = if (isNight) {
-    Brush.verticalGradient(listOf(Color(0xFF201A2E), Color(0xFF2A223A), Color(0xFF362B44)))
+    Brush.verticalGradient(
+        listOf(seasonBlend(Color(0xFF201A2E)), seasonBlend(Color(0xFF2A223A)), seasonBlend(Color(0xFF362B44)))
+    )
 } else {
-    Brush.verticalGradient(listOf(top, bottom))
+    Brush.verticalGradient(listOf(seasonBlend(top), seasonBlend(bottom)))
 }
 
-val SunsetBrush = Brush.linearGradient(listOf(Lilac, RosePink, Peach))
-val SunsetBrushSoft = Brush.linearGradient(listOf(LilacSoft, RosePink.copy(alpha = 0.85f), Peach))
+/** 季节主题名（off / spring / summer / autumn / winter） */
+val seasonName: String get() = AppSettings.season
+
+private fun seasonAccent(): Color? = when (AppSettings.season) {
+    "spring" -> Color(0xFFF6B7CF)
+    "summer" -> Color(0xFF9A8FD8)
+    "autumn" -> Color(0xFFE8B36A)
+    "winter" -> Color(0xFF9FC0E0)
+    else -> null
+}
+
+/** 把季节色调融进任意颜色（保持透明度），用于背景与主题渐变 */
+fun seasonBlend(c: Color, amount: Float = 0.22f): Color {
+    val a = seasonAccent() ?: return c
+    return Color(
+        red = c.red * (1f - amount) + a.red * amount,
+        green = c.green * (1f - amount) + a.green * amount,
+        blue = c.blue * (1f - amount) + a.blue * amount,
+        alpha = c.alpha,
+    )
+}
+
+val SunsetBrush: Brush get() = Brush.linearGradient(
+    listOf(seasonBlend(Lilac, 0.40f), seasonBlend(RosePink, 0.40f), seasonBlend(Peach, 0.40f))
+)
+val SunsetBrushSoft: Brush get() = Brush.linearGradient(
+    listOf(seasonBlend(LilacSoft, 0.40f), seasonBlend(RosePink, 0.40f).copy(alpha = 0.85f), seasonBlend(Peach, 0.40f))
+)
 val NightSkyBrush = Brush.verticalGradient(listOf(NightIndigo, NightPurple, Color(0xFF6E4A7A)))
 val CardBrush = Brush.linearGradient(listOf(Color(0xF5FFFFFF), Color(0xE8FFFFFF)))
 

@@ -21,6 +21,10 @@ enum class SoundType(val emoji: String, val label: String, val asset: String) {
     FOREST("🌲", "林间风", "sounds/forest.ogg"),
     FIRE("🔥", "篝火", "sounds/fire.ogg"),
     WHITE("🌫", "白噪音", "sounds/white.ogg"),
+    STREAM("💧", "溪流", "sounds/stream.ogg"),
+    NIGHT("🦗", "夜虫", "sounds/night.ogg"),
+    CAFE("☕", "咖啡馆", "sounds/cafe.ogg"),
+    SNOW("❄️", "雪落", "sounds/snow.ogg"),
 }
 
 /**
@@ -63,6 +67,7 @@ object SoundEngine {
     fun init(context: Context) {
         val ctx = context.applicationContext
         appContext = ctx
+        loadChannelGains(ctx)
         try {
             val pool = SoundPool.Builder()
                 .setMaxStreams(8)
@@ -161,7 +166,69 @@ object SoundEngine {
 
     fun setGain(ch: SoundType, g: Float) {
         channelGain[ch] = g.coerceIn(0f, 1f)
+        saveChannelGain(ch)
         applyVolume(ch)
+    }
+
+    /** 上次会话保存的声道音量（音量记忆） */
+    private fun loadChannelGains(ctx: Context) {
+        val p = ctx.getSharedPreferences("cloud_rest_channels", Context.MODE_PRIVATE)
+        SoundType.entries.forEach { ch ->
+            channelGain[ch] = p.getFloat("g_" + ch.name, 0.7f)
+        }
+    }
+
+    private fun saveChannelGain(ch: SoundType) {
+        appContext?.getSharedPreferences("cloud_rest_channels", Context.MODE_PRIVATE)
+            ?.edit()?.putFloat("g_" + ch.name, channelGain[ch] ?: 0.7f)?.apply()
+    }
+
+    /** 一键音景：按给定“声道→音量”表整体切换，未列出的全部关闭 */
+    fun applyScene(spec: Map<SoundType, Float>) {
+        rnd = Random(System.currentTimeMillis())
+        SoundType.entries.forEach { ch ->
+            val want = spec[ch]
+            val was = channelOn[ch] ?: false
+            if (want != null) {
+                channelGain[ch] = want.coerceIn(0f, 1f)
+                saveChannelGain(ch)
+                if (!was) {
+                    channelOn[ch] = true
+                    try {
+                        ensurePlayer(ch)?.start()
+                    } catch (_: Exception) {
+                    }
+                }
+                applyVolume(ch)
+            } else if (was) {
+                channelOn[ch] = false
+                try {
+                    players[ch]?.pause()
+                } catch (_: Exception) {
+                }
+            }
+        }
+        startLoop()
+        tick()
+        appContext?.let { SoundService.update(it) }
+    }
+
+    /** 当前混音 → 预设字符串（"RAIN:0.80,FIRE:0.50"） */
+    fun encodeScene(): String =
+        channelOn.filter { it.value }
+            .map { (t, _) -> t.name + ":" + java.lang.String.format(java.util.Locale.US, "%.2f", channelGain[t] ?: 0.7f) }
+            .joinToString(",")
+
+    /** 预设字符串 → 声道音量表 */
+    fun decodeScene(spec: String): Map<SoundType, Float> {
+        val m = HashMap<SoundType, Float>()
+        spec.split(",").forEach { part ->
+            val i = part.indexOf(':')
+            if (i <= 0) return@forEach
+            val v = part.substring(i + 1).toFloatOrNull() ?: return@forEach
+            SoundType.entries.firstOrNull { it.name == part.substring(0, i) }?.let { t -> m[t] = v }
+        }
+        return m
     }
 
     /** 当前主音量（含定时渐弱） */

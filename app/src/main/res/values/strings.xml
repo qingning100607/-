@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">云朵休息室</string>
+    <string name="widget_desc">雨声开关 · 功德 · 今日云签</string>
 </resources>

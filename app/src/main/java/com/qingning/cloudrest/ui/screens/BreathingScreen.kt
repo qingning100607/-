@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingning.cloudrest.audio.SoundEngine
+import com.qingning.cloudrest.data.Store
 import com.qingning.cloudrest.ui.AppSettings
 import com.qingning.cloudrest.ui.components.PlayHeader
 import com.qingning.cloudrest.ui.components.SoftCard
@@ -126,10 +127,13 @@ fun BreathingScreen(onBack: () -> Unit) {
         }
         anim.join()
         val next = (phase + 1) % phases.size
-        if (next == 0) cycles++
+        if (next == 0) {
+            cycles++
+            Store.breathRounds += 1
+        }
         phase = next
         if (AppSettings.hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        SoundEngine.tick()
+        if (AppSettings.bellGuide) SoundEngine.chime() else SoundEngine.tick()
     }
 
     Column(

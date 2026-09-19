@@ -21,6 +21,7 @@ class SoundService : Service() {
         private const val CHANNEL_ID = "cloudrest_playback"
         private const val NOTIFY_ID = 4104
         const val ACTION_STOP = "com.qingning.cloudrest.action.STOP"
+        const val ACTION_FADE_15 = "com.qingning.cloudrest.action.FADE15"
 
         /** 根据播放状态启动/刷新或停止前台服务 */
         fun update(context: Context) {
@@ -44,6 +45,9 @@ class SoundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_FADE_15) {
+            SoundEngine.scheduleStopAfter(15)
+        }
         if (intent?.action == ACTION_STOP) {
             SoundEngine.stopAll()
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -77,6 +81,11 @@ class SoundService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val fade = PendingIntent.getService(
+            this, 2,
+            Intent(this, SoundService::class.java).setAction(ACTION_FADE_15),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         val stop = PendingIntent.getService(
             this, 1,
             Intent(this, SoundService::class.java).setAction(ACTION_STOP),
@@ -87,6 +96,7 @@ class SoundService : Service() {
             .setContentTitle("云朵休息室 · 自然声")
             .setContentText("正在播放：" + labels.joinToString(" · "))
             .setContentIntent(open)
+            .addAction(0, "15分钟后渐弱", fade)
             .addAction(0, "全部停止", stop)
             .setOngoing(true)
             .setShowWhen(false)

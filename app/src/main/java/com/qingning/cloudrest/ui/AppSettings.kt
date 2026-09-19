@@ -42,6 +42,18 @@ object AppSettings {
     var deepNight: Boolean by mutableStateOf(false)
         private set
 
+    /** 季节主题：off / spring春樱 / summer夏夜 / autumn秋桂 / winter冬雪 */
+    var season: String by mutableStateOf("off")
+        private set
+
+    /** 自动夜间：22:00 后自动切深色，早晨自动切回 */
+    var autoNight: Boolean by mutableStateOf(false)
+        private set
+
+    /** 呼吸阶段钵音引导 */
+    var bellGuide: Boolean by mutableStateOf(true)
+        private set
+
     fun init(context: Context) {
         if (prefs != null) return
         prefs = context.applicationContext.getSharedPreferences("cloud_rest_settings", Context.MODE_PRIVATE)
@@ -58,6 +70,9 @@ object AppSettings {
         muyuTone = p.getString("muyu_tone", "crisp") ?: "crisp"
         sfxVolume = p.getFloat("sfx_volume", 1f)
         deepNight = p.getBoolean("deep_night", false)
+        season = p.getString("season", "off") ?: "off"
+        autoNight = p.getBoolean("auto_night", false)
+        bellGuide = p.getBoolean("bell_guide", true)
     }
 
     fun updateBackground(path: String?) {
@@ -99,6 +114,34 @@ object AppSettings {
     fun updateDeepNight(v: Boolean) {
         deepNight = v
         prefs?.edit()?.putBoolean("deep_night", v)?.apply()
+    }
+
+    fun updateSeason(v: String) {
+        season = v
+        prefs?.edit()?.putString("season", v)?.apply()
+    }
+
+    fun updateAutoNight(v: Boolean) {
+        autoNight = v
+        prefs?.edit()?.putBoolean("auto_night", v)?.apply()
+    }
+
+    fun updateBellGuide(v: Boolean) {
+        bellGuide = v
+        prefs?.edit()?.putBoolean("bell_guide", v)?.apply()
+    }
+
+    /** 自动夜间：跨过 22:00 / 7:00 边界时自动切换一次（窗口内尊重手动调整） */
+    fun autoNightTick() {
+        if (!autoNight) return
+        val p = prefs ?: return
+        val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val want = if (h >= 22 || h < 7) "night" else "day"
+        if (p.getString("auto_night_state", "") != want) {
+            p.edit().putString("auto_night_state", want).apply()
+            if (want == "night" && !deepNight) updateDeepNight(true)
+            if (want == "day" && deepNight) updateDeepNight(false)
+        }
     }
 }
 

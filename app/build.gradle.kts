@@ -9,8 +9,8 @@ android {
         applicationId = "com.qingning.cloudrest"
         minSdk = 24
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.8.0"
+        versionCode = 15
+        versionName = "1.9.0"
     }
     signingConfigs {
         create("release") {
