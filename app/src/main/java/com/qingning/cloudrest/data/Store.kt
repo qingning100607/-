@@ -95,6 +95,26 @@ object Store {
 
     fun moodOf(dateKey: String): Int = p().getInt("mood_$dateKey", 0)
 
+    /** 补签：把某天标记为「补签记录」（保存非今日心情时打上） */
+    fun setMoodBackfilled(dateKey: String) {
+        p().edit().putBoolean("moodb_$dateKey", true).apply()
+    }
+
+    /** 清除某天的心情记录（含补签标记） */
+    fun clearMood(dateKey: String) {
+        p().edit().remove("mood_$dateKey").remove("moodb_$dateKey").apply()
+    }
+
+    /** 某月被补签的日期集合 */
+    fun backfilledMap(year: Int, month: Int): Map<String, Boolean> {
+        val prefix = "moodb_%04d-%02d".format(year, month)
+        val r = HashMap<String, Boolean>()
+        p().all.filterKeys { it.startsWith(prefix) }.forEach { (k, v) ->
+            if (v == true) r[k.removePrefix("moodb_")] = true
+        }
+        return r
+    }
+
     // 每日云签：key = yyyy-MM-dd，value = 签文序号（-1 = 未抽）
     fun fortuneOf(dateKey: String): Int = p().getInt("fortune_$dateKey", -1)
 

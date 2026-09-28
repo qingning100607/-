@@ -23,14 +23,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,11 +64,29 @@ import com.qingning.cloudrest.ui.theme.SubInk
 import com.qingning.cloudrest.ui.theme.SunsetBrush
 import com.qingning.cloudrest.ui.theme.screenBg
 import com.qingning.cloudrest.ui.theme.screenTopColor
+import com.qingning.cloudrest.update.UpdateChecker
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+
+    val version = remember {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.9.3"
+        } catch (_: Exception) {
+            "1.9.3"
+        }
+    }
+    var checking by remember { mutableStateOf(false) }
+    var updateInfo by remember { mutableStateOf<UpdateChecker.Result?>(null) }
+    var updateMsg by remember { mutableStateOf("") }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             try {
@@ -482,17 +503,87 @@ fun SettingsScreen(onBack: () -> Unit) {
 
         Spacer(Modifier.height(14.dp))
 
+        // 版本与更新
+        SoftCard {
+            Text("版本与更新", style = MaterialTheme.typography.titleMedium, color = Ink)
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("当前版本 v$version", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Ink)
+                    Spacer(Modifier.height(3.dp))
+                    Hint("看看有没有新版本（连 GitHub 仓库）")
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (checking) "检查中…" else "检查更新",
+                    fontSize = 13.sp,
+                    color = Color.White,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (checking) SolidColor(ChipBg) else SunsetBrush)
+                        .padding(horizontal = 16.dp, vertical = 9.dp)
+                        .bounceClickable {
+                            if (checking) return@bounceClickable
+                            checking = true
+                            SoundEngine.tick()
+                            scope.launch {
+                                val r = withContext(Dispatchers.IO) { UpdateChecker.check(version) }
+                                checking = false
+                                updateInfo = r
+                                updateMsg = when {
+                                    !r.ok -> "暂时没连上更新服务，检查一下网络再试试～"
+                                    r.hasUpdate -> "发现新版本 v${r.latest}，去下载看看吧"
+                                    else -> "已经是最新版本 v$version，安心休息就好 ☁️"
+                                }
+                                showUpdateDialog = true
+                            }
+                        },
+                )
+            }
+        }
+
+        if (showUpdateDialog) {
+            AlertDialog(
+                onDismissRequest = { showUpdateDialog = false },
+                title = {
+                    Text(
+                        if (updateInfo?.hasUpdate == true) "发现新版本" else "检查更新",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Ink,
+                    )
+                },
+                text = { Text(updateMsg, fontSize = 14.sp, color = SubInk) },
+                confirmButton = {
+                    if (updateInfo?.hasUpdate == true) {
+                        TextButton(onClick = {
+                            showUpdateDialog = false
+                            val u = updateInfo?.url.orEmpty()
+                            if (u.isNotBlank()) {
+                                try {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(u))
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                } catch (_: Exception) {
+                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    cm.setPrimaryClip(ClipData.newPlainText("update", u))
+                                    Toast.makeText(context, "下载链接已复制", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }) { Text("前往下载", color = RosePink) }
+                    } else {
+                        TextButton(onClick = { showUpdateDialog = false }) { Text("好的", color = SubInk) }
+                    }
+                },
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+
         // 关于
         SoftCard {
             Text("关于", style = MaterialTheme.typography.titleMedium, color = Ink)
             Spacer(Modifier.height(10.dp))
-            val version = remember {
-                try {
-                    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.1.0"
-                } catch (_: Exception) {
-                    "1.1.0"
-                }
-            }
             Text("云朵休息室 v$version", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Ink)
             Spacer(Modifier.height(6.dp))
             Text("作者：青柠不酸只甜", fontSize = 14.sp, color = SubInk)

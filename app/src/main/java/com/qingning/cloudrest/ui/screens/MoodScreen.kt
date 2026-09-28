@@ -14,11 +14,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +41,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingning.cloudrest.audio.SoundEngine
@@ -74,6 +79,7 @@ fun MoodScreen() {
     val today = Store.todayKey()
     var mood by remember { mutableStateOf(Store.moodOf(today)) }
     var quote by remember { mutableStateOf(Store.randomQuote()) }
+    var dataTick by remember { mutableStateOf(0) }
 
     val scroll = rememberScrollState()
     Box(Modifier.fillMaxSize()) {
@@ -124,12 +130,15 @@ fun MoodScreen() {
         }
 
         Spacer(Modifier.height(14.dp))
-        MoodTrend()
+        MoodTrend(dataTick)
 
         Spacer(Modifier.height(14.dp))
         SoftCard {
-            MoodCalendar()
+        MoodCalendar(dataTick) {
+            dataTick += 1
+            mood = Store.moodOf(today)
         }
+    }
 
         Spacer(Modifier.height(14.dp))
         SoftCard {
@@ -224,7 +233,7 @@ private fun MoodFace(level: Int, selected: Boolean, modifier: Modifier, onClick:
 }
 
 @Composable
-private fun MoodTrend() {
+private fun MoodTrend(refresh: Int) {
     // 近 14 天（含今天，从左到右）的 (年, 月, 日) 列表
     val slots = ArrayList<Triple<Int, Int, Int>>()
     val c = Calendar.getInstance()
@@ -232,9 +241,13 @@ private fun MoodTrend() {
         slots.add(0, Triple(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH)))
         c.add(Calendar.DAY_OF_MONTH, -1)
     }
-    val merged = HashMap<String, Int>()
-    slots.map { it.first to it.second }.distinct().forEach { (y, m) ->
-        merged.putAll(Store.moodMap(y, m))
+    // refresh 变化时重新拉取数据（补签后曲线即时更新）
+    val merged = remember(refresh) {
+        val acc = HashMap<String, Int>()
+        slots.map { it.first to it.second }.distinct().forEach { (y, m) ->
+            acc.putAll(Store.moodMap(y, m))
+        }
+        acc
     }
     val moods = slots.map { (y, m, d) -> merged["%04d-%02d-%02d".format(y, m, d)] ?: 0 }
     val recorded = moods.count { it > 0 }
@@ -270,9 +283,24 @@ private fun MoodTrend() {
                     if (m > 0) Triple(m, xOf(i), yOf(m)) else null
                 }
                 if (pts.size >= 2) {
+                    // Catmull-Rom → 三次贝塞尔：把折线变成圆润的平滑曲线
                     val path = Path().apply {
                         moveTo(pts.first().second, pts.first().third)
-                        pts.drop(1).forEach { lineTo(it.second, it.third) }
+                        if (pts.size == 2) {
+                            lineTo(pts[1].second, pts[1].third)
+                        } else {
+                            for (k in 0 until pts.size - 1) {
+                                val p0 = pts[if (k - 1 < 0) k else k - 1]
+                                val p1 = pts[k]
+                                val p2 = pts[k + 1]
+                                val p3 = pts[if (k + 2 > pts.size - 1) k + 1 else k + 2]
+                                val c1x = p1.second + (p2.second - p0.second) / 6f
+                                val c1y = p1.third + (p2.third - p0.third) / 6f
+                                val c2x = p2.second - (p3.second - p1.second) / 6f
+                                val c2y = p2.third - (p3.third - p1.third) / 6f
+                                cubicTo(c1x, c1y, c2x, c2y, p2.second, p2.third)
+                            }
+                        }
                     }
                     drawPath(
                         path,
@@ -298,16 +326,22 @@ private fun MoodTrend() {
 }
 
 @Composable
-private fun MoodCalendar() {
+private fun MoodCalendar(refresh: Int, onChanged: () -> Unit) {
     val cal = Calendar.getInstance()
     val year = cal.get(Calendar.YEAR)
     val month = cal.get(Calendar.MONTH)
-    val map = Store.moodMap(year, month + 1)
+    val map = remember(refresh) { Store.moodMap(year, month + 1) }
+    val backfilled = remember(refresh) { Store.backfilledMap(year, month + 1) }
     val firstDow = Calendar.getInstance().apply { set(year, month, 1) }.get(Calendar.DAY_OF_WEEK)
     val days = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
     val today = cal.get(Calendar.DAY_OF_MONTH)
     val lead = firstDow - 1
     val totalCells = ((lead + days + 6) / 7) * 7
+
+    // 补签对话框状态
+    var editKey by remember { mutableStateOf<String?>(null) }
+    var editDay by remember { mutableStateOf(0) }
+    var editMood by remember { mutableStateOf(0) }
 
     Text("${year}年${month + 1}月", fontSize = 13.sp, color = SubInk)
     Spacer(Modifier.height(8.dp))
@@ -331,7 +365,16 @@ private fun MoodCalendar() {
                         val key = "%04d-%02d-%02d".format(year, month + 1, dayNum)
                         val m = map[key] ?: 0
                         val isToday = dayNum == today
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val isBack = backfilled[key] == true
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.bounceClickable {
+                                SoundEngine.tick()
+                                editKey = key
+                                editDay = dayNum
+                                editMood = m
+                            },
+                        ) {
                             Text(
                                 "$dayNum",
                                 fontSize = 12.sp,
@@ -339,16 +382,91 @@ private fun MoodCalendar() {
                                 fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                             )
                             Spacer(Modifier.height(2.dp))
-                            Box(
-                                Modifier
-                                    .size(if (isToday) 7.dp else 6.dp)
-                                    .clip(CircleShape)
-                                    .background(if (m > 0) MoodColors[m - 1] else Color.Transparent)
-                            )
+                            if (isBack) {
+                                // 补签日：空心圆点
+                                Box(
+                                    Modifier
+                                        .size(if (isToday) 7.dp else 6.dp)
+                                        .clip(CircleShape)
+                                        .border(
+                                            1.5.dp,
+                                            if (m > 0) MoodColors[m - 1] else SubInk.copy(alpha = 0.4f),
+                                            CircleShape,
+                                        )
+                                )
+                            } else {
+                                Box(
+                                    Modifier
+                                        .size(if (isToday) 7.dp else 6.dp)
+                                        .clip(CircleShape)
+                                        .background(if (m > 0) MoodColors[m - 1] else Color.Transparent)
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text("点任意日期可补签过去的心情 · 空心点 = 补签记录", fontSize = 10.sp, color = SubInk)
+
+    val dk = editKey
+    if (dk != null) {
+        AlertDialog(
+            onDismissRequest = { editKey = null },
+            title = { Text("${month + 1}月${editDay}日的心情", style = MaterialTheme.typography.titleMedium, color = Ink) },
+            text = {
+                Column {
+                    Text(
+                        if (editMood > 0) "当前：${MoodLabels[editMood - 1]}，可重新选择或清除这天的记录"
+                        else "这天还没有记录，来补一个吧～",
+                        fontSize = 12.sp,
+                        color = SubInk,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    MoodLabels.forEachIndexed { i, label ->
+                        val sel = editMood == i + 1
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (sel) MoodColors[i].copy(alpha = 0.18f) else Color.Transparent)
+                                .bounceClickable {
+                                    Store.setMood(dk, i + 1)
+                                    if (dk != Store.todayKey()) Store.setMoodBackfilled(dk)
+                                    SoundEngine.chime()
+                                    editKey = null
+                                    onChanged()
+                                }
+                                .padding(vertical = 10.dp, horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.size(12.dp).clip(CircleShape).background(MoodColors[i]))
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                label,
+                                fontSize = 15.sp,
+                                color = if (sel) RosePink else Ink,
+                                fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { editKey = null }) { Text("取消", color = SubInk) }
+            },
+            dismissButton = {
+                if (editMood > 0) {
+                    TextButton(onClick = {
+                        Store.clearMood(dk)
+                        SoundEngine.tick()
+                        editKey = null
+                        onChanged()
+                    }) { Text("清除这天", color = RosePink) }
+                }
+            },
+        )
     }
 }
