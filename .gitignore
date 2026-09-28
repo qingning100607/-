@@ -5,3 +5,8 @@ build/
 .idea/
 *.iml
 local.properties
+
+# 签名密钥与本地机密（绝不入库）
+keystore/
+*.jks
+*.keystore

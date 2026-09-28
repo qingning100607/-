@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+// 签名信息统一从 local.properties 读取（该文件已 gitignore，绝不入库）
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+fun localProp(key: String, def: String = ""): String = localProps.getProperty(key) ?: def
+
 android {
     namespace = "com.qingning.cloudrest"
     compileSdk = 36
@@ -14,10 +24,10 @@ android {
     }
     signingConfigs {
         create("release") {
-            storeFile = rootProject.file("keystore/release.jks")
-            storePassword = "REDACTED"
-            keyAlias = "androiddebugkey"
-            keyPassword = "REDACTED"
+            storeFile = rootProject.file(localProp("cloudrest.storeFile", "keystore/release.jks"))
+            storePassword = localProp("cloudrest.storePassword")
+            keyAlias = localProp("cloudrest.keyAlias", "androiddebugkey")
+            keyPassword = localProp("cloudrest.keyPassword")
         }
     }
     buildTypes {
