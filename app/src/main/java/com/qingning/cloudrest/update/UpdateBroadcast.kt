@@ -46,8 +46,13 @@ object UpdateBroadcast {
         lastCheckAt = now
         checking = true
         try {
-            val r = UpdateChecker.check(current)
+            // 网络请求务必在 IO 线程，避免阻塞主线程导致启动卡顿
+            val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                UpdateChecker.check(current)
+            }
             if (r.ok && r.hasUpdate) found = r
+        } catch (_: Exception) {
+            // 静默失败，不影响使用
         } finally {
             checking = false
         }
