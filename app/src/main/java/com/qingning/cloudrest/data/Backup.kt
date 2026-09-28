@@ -11,28 +11,39 @@ object Backup {
     private const val STORE_PREFS = "cloud_rest"
     private const val SETTINGS_PREFS = "cloud_rest_settings"
 
+    /** 备份格式版本：2 起带 format 字段并做兼容校验 */
+    private const val FORMAT = 2
+
+    /** 导入结果 */
+    const val OK = 0
+    const val BAD_FILE = 1
+    const val TOO_NEW = 2
+
     /** 导出全部数据为一个 JSON 字符串 */
     fun exportJson(context: Context): String {
         val root = JSONObject()
         root.put("app", "云朵休息室")
-        root.put("format", 1)
+        root.put("format", FORMAT)
         root.put("exported_at", System.currentTimeMillis())
         root.put("store", dump(context.getSharedPreferences(STORE_PREFS, Context.MODE_PRIVATE)))
         root.put("settings", dump(context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)))
         return root.toString(2)
     }
 
-    /** 导入备份；成功返回 true */
-    fun importJson(context: Context, text: String): Boolean {
+    /** 导入备份；返回 OK / BAD_FILE / TOO_NEW */
+    fun importJson(context: Context, text: String): Int {
         return try {
             val root = JSONObject(text)
-            if (!root.has("store") && !root.has("settings")) return false
+            if (!root.has("store") && !root.has("settings")) return BAD_FILE
+            // 老备份没有 format 字段，按 1 处理（结构兼容）
+            val fmt = if (root.has("format")) root.optInt("format", 1) else 1
+            if (fmt > FORMAT) return TOO_NEW
             write(context.getSharedPreferences(STORE_PREFS, Context.MODE_PRIVATE), root.optJSONObject("store") ?: JSONObject())
             write(context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE), root.optJSONObject("settings") ?: JSONObject())
             AppSettings.refresh()
-            true
+            OK
         } catch (_: Exception) {
-            false
+            BAD_FILE
         }
     }
 

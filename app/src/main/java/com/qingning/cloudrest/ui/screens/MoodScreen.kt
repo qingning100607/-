@@ -130,6 +130,42 @@ fun MoodScreen() {
         }
 
         Spacer(Modifier.height(14.dp))
+        SoftCard {
+            Text("心情小札", style = MaterialTheme.typography.titleMedium, color = Ink)
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth()) {
+                StatItem("最长连续", "${Store.moodLongestStreak()} 天", Modifier.weight(1f))
+                StatItem("累计记录", "${Store.moodTotalDays()} 天", Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(12.dp))
+            val topMood = Store.moodTop()
+            if (topMood > 0) {
+                Text(
+                    "最常出现：${MoodLabels[topMood - 1]}",
+                    fontSize = 13.sp,
+                    color = MoodColors[topMood - 1],
+                    fontWeight = FontWeight.Medium,
+                )
+                Spacer(Modifier.height(6.dp))
+            }
+            val (recentWeek, beforeWeek) = Store.moodWeekPair()
+            Text(
+                when {
+                    recentWeek > beforeWeek -> "本周比上周多记了 ${recentWeek - beforeWeek} 天，继续保持 ☁️"
+                    recentWeek < beforeWeek -> "本周比上周少了 ${beforeWeek - recentWeek} 天，记得回来看看～"
+                    else -> "本周和上周一样，节奏很稳 ☁️"
+                },
+                fontSize = 13.sp,
+                color = SubInk,
+            )
+            val backDays = Store.backfilledDays()
+            if (backDays > 0) {
+                Spacer(Modifier.height(6.dp))
+                Text("其中补签 $backDays 天", fontSize = 12.sp, color = SubInk)
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
         MoodTrend(dataTick)
 
         Spacer(Modifier.height(14.dp))
@@ -241,8 +277,8 @@ private fun MoodTrend(refresh: Int) {
         slots.add(0, Triple(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH)))
         c.add(Calendar.DAY_OF_MONTH, -1)
     }
-    // refresh 变化时重新拉取数据（补签后曲线即时更新）
-    val merged = remember(refresh) {
+// refresh 变化（补签）或跨零点时重新拉取数据
+        val merged = remember(refresh, Store.todayKey()) {
         val acc = HashMap<String, Int>()
         slots.map { it.first to it.second }.distinct().forEach { (y, m) ->
             acc.putAll(Store.moodMap(y, m))
@@ -327,23 +363,83 @@ private fun MoodTrend(refresh: Int) {
 
 @Composable
 private fun MoodCalendar(refresh: Int, onChanged: () -> Unit) {
-    val cal = Calendar.getInstance()
-    val year = cal.get(Calendar.YEAR)
-    val month = cal.get(Calendar.MONTH)
-    val map = remember(refresh) { Store.moodMap(year, month + 1) }
-    val backfilled = remember(refresh) { Store.backfilledMap(year, month + 1) }
+    val todayCal = remember { Calendar.getInstance() }
+    val tYear = todayCal.get(Calendar.YEAR)
+    val tMonth = todayCal.get(Calendar.MONTH)
+    val tDay = todayCal.get(Calendar.DAY_OF_MONTH)
+    val todayKey = Store.todayKey()
+
+    // 当前查看的月份（可翻月回看 / 补签历史）
+    var year by remember { mutableStateOf(tYear) }
+    var month by remember { mutableStateOf(tMonth) }
+
+    val map = remember(refresh, year, month) { Store.moodMap(year, month + 1) }
+    val backfilled = remember(refresh, year, month) { Store.backfilledMap(year, month + 1) }
     val firstDow = Calendar.getInstance().apply { set(year, month, 1) }.get(Calendar.DAY_OF_WEEK)
-    val days = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-    val today = cal.get(Calendar.DAY_OF_MONTH)
+    val days = Calendar.getInstance().apply { set(year, month, 1) }.getActualMaximum(Calendar.DAY_OF_MONTH)
     val lead = firstDow - 1
     val totalCells = ((lead + days + 6) / 7) * 7
+    val isCurrentMonth = year == tYear && month == tMonth
+    val monthCount = map.values.count { it > 0 }
 
     // 补签对话框状态
     var editKey by remember { mutableStateOf<String?>(null) }
     var editDay by remember { mutableStateOf(0) }
     var editMood by remember { mutableStateOf(0) }
 
-    Text("${year}年${month + 1}月", fontSize = 13.sp, color = SubInk)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "‹",
+            fontSize = 20.sp,
+            color = SubInk,
+            modifier = Modifier
+                .clip(CircleShape)
+                .bounceClickable {
+                    SoundEngine.tick()
+                    val c = Calendar.getInstance().apply {
+                        set(year, month, 1)
+                        add(Calendar.MONTH, -1)
+                    }
+                    year = c.get(Calendar.YEAR)
+                    month = c.get(Calendar.MONTH)
+                }
+                .padding(horizontal = 12.dp, vertical = 2.dp),
+        )
+        Text(
+            "${year}年${month + 1}月",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Ink,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            "›",
+            fontSize = 20.sp,
+            color = if (isCurrentMonth) SubInk.copy(alpha = 0.3f) else SubInk,
+            modifier = Modifier
+                .clip(CircleShape)
+                .bounceClickable {
+                    if (isCurrentMonth) return@bounceClickable
+                    SoundEngine.tick()
+                    val c = Calendar.getInstance().apply {
+                        set(year, month, 1)
+                        add(Calendar.MONTH, 1)
+                    }
+                    year = c.get(Calendar.YEAR)
+                    month = c.get(Calendar.MONTH)
+                }
+                .padding(horizontal = 12.dp, vertical = 2.dp),
+        )
+    }
+    Spacer(Modifier.height(2.dp))
+    Text(
+        "本月记录 $monthCount 天",
+        fontSize = 11.sp,
+        color = SubInk,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
     Spacer(Modifier.height(8.dp))
     Row(Modifier.fillMaxWidth()) {
         listOf("日", "一", "二", "三", "四", "五", "六").forEach { d ->
@@ -364,11 +460,13 @@ private fun MoodCalendar(refresh: Int, onChanged: () -> Unit) {
                     if (dayNum in 1..days) {
                         val key = "%04d-%02d-%02d".format(year, month + 1, dayNum)
                         val m = map[key] ?: 0
-                        val isToday = dayNum == today
+                        val isToday = year == tYear && month == tMonth && dayNum == tDay
                         val isBack = backfilled[key] == true
+                        val editable = key <= todayKey
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.bounceClickable {
+                                if (!editable) return@bounceClickable
                                 SoundEngine.tick()
                                 editKey = key
                                 editDay = dayNum
@@ -378,7 +476,11 @@ private fun MoodCalendar(refresh: Int, onChanged: () -> Unit) {
                             Text(
                                 "$dayNum",
                                 fontSize = 12.sp,
-                                color = if (isToday) RosePink else Ink,
+                                color = when {
+                                    isToday -> RosePink
+                                    editable -> Ink
+                                    else -> SubInk.copy(alpha = 0.45f)
+                                },
                                 fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                             )
                             Spacer(Modifier.height(2.dp))
@@ -409,7 +511,7 @@ private fun MoodCalendar(refresh: Int, onChanged: () -> Unit) {
         }
     }
     Spacer(Modifier.height(8.dp))
-    Text("点任意日期可补签过去的心情 · 空心点 = 补签记录", fontSize = 10.sp, color = SubInk)
+    Text("可翻月回看 · 点历史日期补签 · 空心点 = 补签记录", fontSize = 10.sp, color = SubInk)
 
     val dk = editKey
     if (dk != null) {

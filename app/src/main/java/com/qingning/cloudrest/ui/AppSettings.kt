@@ -54,6 +54,18 @@ object AppSettings {
     var bellGuide: Boolean by mutableStateOf(true)
         private set
 
+    /** 每日心情提醒开关 */
+    var reminderOn: Boolean by mutableStateOf(false)
+        private set
+
+    /** 提醒时间：小时 0..23 */
+    var reminderHour: Int by mutableStateOf(21)
+        private set
+
+    /** 提醒时间：分钟 0..59 */
+    var reminderMinute: Int by mutableStateOf(0)
+        private set
+
     fun init(context: Context) {
         if (prefs != null) return
         prefs = context.applicationContext.getSharedPreferences("cloud_rest_settings", Context.MODE_PRIVATE)
@@ -73,6 +85,9 @@ object AppSettings {
         season = p.getString("season", "off") ?: "off"
         autoNight = p.getBoolean("auto_night", false)
         bellGuide = p.getBoolean("bell_guide", true)
+        reminderOn = p.getBoolean("reminder_on", false)
+        reminderHour = p.getInt("reminder_hour", 21).coerceIn(0, 23)
+        reminderMinute = p.getInt("reminder_minute", 0).coerceIn(0, 59)
     }
 
     fun updateBackground(path: String?) {
@@ -129,6 +144,20 @@ object AppSettings {
     fun updateBellGuide(v: Boolean) {
         bellGuide = v
         prefs?.edit()?.putBoolean("bell_guide", v)?.apply()
+    }
+
+    fun updateReminderOn(v: Boolean) {
+        reminderOn = v
+        prefs?.edit()?.putBoolean("reminder_on", v)?.apply()
+    }
+
+    fun updateReminderTime(hour: Int, minute: Int) {
+        reminderHour = hour.coerceIn(0, 23)
+        reminderMinute = minute.coerceIn(0, 59)
+        prefs?.edit()
+            ?.putInt("reminder_hour", reminderHour)
+            ?.putInt("reminder_minute", reminderMinute)
+            ?.apply()
     }
 
     /** 自动夜间：跨过 22:00 / 7:00 边界时自动切换一次（窗口内尊重手动调整） */

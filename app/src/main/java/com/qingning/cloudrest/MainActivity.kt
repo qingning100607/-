@@ -177,6 +177,7 @@ fun CloudApp(initialOpen: String? = null, consumeOpen: () -> Unit = {}) {
             "fortune" -> openOverlay { play = PlayPage.FORTUNE }
             "breath" -> openOverlay { play = PlayPage.BREATH }
             "achievements" -> openOverlay { play = PlayPage.ACHIEVEMENTS }
+            "mood" -> tab = 3
         }
         consumeOpen()
     }

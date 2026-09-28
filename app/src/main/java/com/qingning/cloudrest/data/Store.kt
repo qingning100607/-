@@ -115,6 +115,85 @@ object Store {
         return r
     }
 
+    // ===== 心情洞察（统计用） =====
+
+    /** 有心情记录的总天数 */
+    fun moodTotalDays(): Int = p().all.keys.count { it.startsWith("mood_") }
+
+    /** 补签的总天数 */
+    fun backfilledDays(): Int = p().all.keys.count { it.startsWith("moodb_") }
+
+    /** 历史上最长的连续记录天数 */
+    fun moodLongestStreak(): Int {
+        val days = p().all.keys
+            .filter { it.startsWith("mood_") }
+            .map { it.removePrefix("mood_") }
+            .sorted()
+        if (days.isEmpty()) return 0
+        var best = 1
+        var cur = 1
+        for (i in 1 until days.size) {
+            if (isNextDay(days[i - 1], days[i])) {
+                cur += 1
+                if (cur > best) best = cur
+            } else {
+                cur = 1
+            }
+        }
+        return best
+    }
+
+    /** 出现次数最多的心情档位（1..5），没有记录返回 0 */
+    fun moodTop(): Int {
+        val counts = IntArray(6)
+        p().all.forEach { (k, v) ->
+            if (k.startsWith("mood_") && v is Int && v in 1..5) counts[v] += 1
+        }
+        var best = 0
+        for (i in 1..5) if (counts[i] > counts[best]) best = i
+        return best
+    }
+
+    /** 近 7 天 与 前 7 天 的记录天数（用于周对比） */
+    fun moodWeekPair(): Pair<Int, Int> {
+        var recent = 0
+        var before = 0
+        val c = Calendar.getInstance()
+        repeat(7) {
+            val k = "%04d-%02d-%02d".format(
+                c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH)
+            )
+            if (p().contains("mood_$k")) recent += 1
+            c.add(Calendar.DAY_OF_MONTH, -1)
+        }
+        repeat(7) {
+            val k = "%04d-%02d-%02d".format(
+                c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH)
+            )
+            if (p().contains("mood_$k")) before += 1
+            c.add(Calendar.DAY_OF_MONTH, -1)
+        }
+        return recent to before
+    }
+
+    /** b 是否恰好是 a 的后一天（a、b 形如 yyyy-MM-dd） */
+    private fun isNextDay(a: String, b: String): Boolean {
+        return try {
+            val x = a.split("-")
+            val y = b.split("-")
+            val c = Calendar.getInstance().apply {
+                clear()
+                set(x[0].toInt(), x[1].toInt() - 1, x[2].toInt())
+                add(Calendar.DAY_OF_MONTH, 1)
+            }
+            c.get(Calendar.YEAR) == y[0].toInt() &&
+                c.get(Calendar.MONTH) + 1 == y[1].toInt() &&
+                c.get(Calendar.DAY_OF_MONTH) == y[2].toInt()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     // 每日云签：key = yyyy-MM-dd，value = 签文序号（-1 = 未抽）
     fun fortuneOf(dateKey: String): Int = p().getInt("fortune_$dateKey", -1)
 

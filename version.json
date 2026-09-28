@@ -1,5 +1,6 @@
 {
-  "version": "1.9.3",
-  "note": "心情版：情绪曲线平滑化、心情站补签、设置页检查更新",
-  "url": "https://github.com/qingning100607/-/releases/latest"
+  "version": "1.10.0",
+  "note": "贴心版：心情日历翻月补签、每日心情提醒、心情小札统计、应用内下载更新、备份版本校验、跨零点刷新修复",
+  "url": "https://github.com/qingning100607/-/releases/latest",
+  "apk": "https://github.com/qingning100607/-/releases/download/v1.10.0/CloudRest-v1.10.0.apk"
 }

@@ -21,9 +21,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -65,7 +68,13 @@ import com.qingning.cloudrest.ui.theme.SunsetBrush
 import com.qingning.cloudrest.ui.theme.screenBg
 import com.qingning.cloudrest.ui.theme.screenTopColor
 import com.qingning.cloudrest.update.UpdateChecker
+import android.Manifest
+import android.os.Build
+import androidx.core.content.FileProvider
+import com.qingning.cloudrest.notify.ReminderScheduler
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -85,7 +94,13 @@ fun SettingsScreen(onBack: () -> Unit) {
     var updateInfo by remember { mutableStateOf<UpdateChecker.Result?>(null) }
     var updateMsg by remember { mutableStateOf("") }
     var showUpdateDialog by remember { mutableStateOf(false) }
+    var showTimeDialog by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var dlProgress by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
+
+    // Android 13+ 通知权限：开启每日提醒时按需申请
+    val notifPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -123,12 +138,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                 val text = context.contentResolver.openInputStream(uri)?.use { input ->
                     input.readBytes().toString(Charsets.UTF_8)
                 }.orEmpty()
-                val ok = Backup.importJson(context, text)
-                Toast.makeText(
-                    context,
-                    if (ok) "备份已还原，数据已生效" else "这个文件看起来不是云朵休息室的备份",
-                    Toast.LENGTH_SHORT,
-                ).show()
+                val result = Backup.importJson(context, text)
+                val msg = when (result) {
+                    Backup.OK -> "备份已还原，数据已生效"
+                    Backup.TOO_NEW -> "这份备份来自更新版本，请先升级 App 再还原"
+                    else -> "这个文件看起来不是云朵休息室的备份"
+                }
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             } catch (_: Exception) {
                 Toast.makeText(context, "还原失败，文件可能已损坏", Toast.LENGTH_SHORT).show()
             }
@@ -359,6 +375,121 @@ fun SettingsScreen(onBack: () -> Unit) {
 
         Spacer(Modifier.height(14.dp))
 
+        // 提醒
+        SoftCard {
+            Text("提醒", style = MaterialTheme.typography.titleMedium, color = Ink)
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("每日心情提醒", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Ink)
+                    Spacer(Modifier.height(3.dp))
+                    Hint("到点温柔提醒你记一笔心情，可以随时关掉")
+                }
+                Switch(
+                    checked = AppSettings.reminderOn,
+                    onCheckedChange = { on ->
+                        SoundEngine.tick()
+                        if (on && Build.VERSION.SDK_INT >= 33) {
+                            notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                        AppSettings.updateReminderOn(on)
+                        ReminderScheduler.apply(context)
+                        if (on) {
+                            Toast.makeText(context, "已开启，记得保持通知权限哦", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                )
+            }
+            if (AppSettings.reminderOn) {
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("提醒时间", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Ink)
+                        Spacer(Modifier.height(3.dp))
+                        Hint("点右侧可以调整")
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "%02d:%02d".format(AppSettings.reminderHour, AppSettings.reminderMinute),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(SunsetBrush)
+                            .padding(horizontal = 18.dp, vertical = 9.dp)
+                            .bounceClickable {
+                                SoundEngine.tick()
+                                showTimeDialog = true
+                            },
+                    )
+                }
+            }
+        }
+
+        if (showTimeDialog) {
+            var th by remember { mutableStateOf(AppSettings.reminderHour) }
+            var tm by remember { mutableStateOf(AppSettings.reminderMinute) }
+            AlertDialog(
+                onDismissRequest = { showTimeDialog = false },
+                title = { Text("提醒时间", style = MaterialTheme.typography.titleMedium, color = Ink) },
+                text = {
+                    Column {
+                        Text("每天在这个时间提醒你记一笔心情", fontSize = 12.sp, color = SubInk)
+                        Spacer(Modifier.height(16.dp))
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("时", fontSize = 13.sp, color = SubInk, modifier = Modifier.width(24.dp))
+                            Spacer(Modifier.width(6.dp))
+                            StepText("‹") { th = (th + 23) % 24 }
+                            Text(
+                                "%02d".format(th),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Ink,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.width(48.dp),
+                            )
+                            StepText("›") { th = (th + 1) % 24 }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("分", fontSize = 13.sp, color = SubInk, modifier = Modifier.width(24.dp))
+                            Spacer(Modifier.width(6.dp))
+                            StepText("‹") { tm = (tm + 55) % 60 }
+                            Text(
+                                "%02d".format(tm),
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Ink,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.width(48.dp),
+                            )
+                            StepText("›") { tm = (tm + 5) % 60 }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            "将每天 %02d:%02d 提醒你".format(th, tm),
+                            fontSize = 13.sp,
+                            color = RosePink,
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        AppSettings.updateReminderTime(th, tm)
+                        ReminderScheduler.apply(context)
+                        SoundEngine.chime()
+                        showTimeDialog = false
+                    }) { Text("保存", color = RosePink) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showTimeDialog = false }) { Text("取消", color = SubInk) }
+                },
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+
         // 交流
         SoftCard {
             Text("交流", style = MaterialTheme.typography.titleMedium, color = Ink)
@@ -544,7 +675,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 
         if (showUpdateDialog) {
             AlertDialog(
-                onDismissRequest = { showUpdateDialog = false },
+                onDismissRequest = { if (!downloading) showUpdateDialog = false },
                 title = {
                     Text(
                         if (updateInfo?.hasUpdate == true) "发现新版本" else "检查更新",
@@ -552,25 +683,60 @@ fun SettingsScreen(onBack: () -> Unit) {
                         color = Ink,
                     )
                 },
-                text = { Text(updateMsg, fontSize = 14.sp, color = SubInk) },
+                text = {
+                    Column {
+                        Text(updateMsg, fontSize = 14.sp, color = SubInk)
+                        if (downloading) {
+                            Spacer(Modifier.height(12.dp))
+                            Text("正在下载 $dlProgress%", fontSize = 13.sp, color = RosePink)
+                            Spacer(Modifier.height(6.dp))
+                            LinearProgressIndicator(
+                                progress = { dlProgress / 100f },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = RosePink,
+                            )
+                        }
+                    }
+                },
                 confirmButton = {
                     if (updateInfo?.hasUpdate == true) {
-                        TextButton(onClick = {
-                            showUpdateDialog = false
-                            val u = updateInfo?.url.orEmpty()
-                            if (u.isNotBlank()) {
-                                try {
-                                    context.startActivity(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse(u))
-                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    )
-                                } catch (_: Exception) {
-                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    cm.setPrimaryClip(ClipData.newPlainText("update", u))
-                                    Toast.makeText(context, "下载链接已复制", Toast.LENGTH_SHORT).show()
+                        TextButton(
+                            enabled = !downloading,
+                            onClick = {
+                                val apk = updateInfo?.apk.orEmpty()
+                                val page = updateInfo?.url.orEmpty()
+                                if (apk.isBlank()) {
+                                    // 没有直链（例如仅从 tags 兜底得知新版本）→ 退到浏览器
+                                    showUpdateDialog = false
+                                    if (page.isNotBlank()) {
+                                        try {
+                                            context.startActivity(
+                                                Intent(Intent.ACTION_VIEW, Uri.parse(page))
+                                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            )
+                                        } catch (_: Exception) {
+                                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            cm.setPrimaryClip(ClipData.newPlainText("update", page))
+                                            Toast.makeText(context, "下载链接已复制", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    return@TextButton
                                 }
-                            }
-                        }) { Text("前往下载", color = RosePink) }
+                                downloading = true
+                                dlProgress = 0
+                                SoundEngine.tick()
+                                scope.launch {
+                                    val f = downloadUpdate(context, apk) { dlProgress = it }
+                                    downloading = false
+                                    if (f != null) {
+                                        showUpdateDialog = false
+                                        launchInstall(context, f)
+                                    } else {
+                                        Toast.makeText(context, "下载没成功，检查一下网络再试试", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                        ) { Text(if (downloading) "下载中…" else "下载并安装", color = RosePink) }
                     } else {
                         TextButton(onClick = { showUpdateDialog = false }) { Text("好的", color = SubInk) }
                     }
@@ -624,3 +790,85 @@ private fun TonePill(text: String, selected: Boolean, onClick: () -> Unit) {
 
 /** QQ交流群链接（点击跳转） */
 private const val QQ_GROUP_URL = "https://qun.qq.com/universal-share/share?ac=1&authKey=b8p514GhQ3%2FPtghR%2F8R5DfZD26lit934hKoCkR3jN8HQ%2FBlaJAHX5gfWMaczugaS&busi_data=eyJncm91cENvZGUiOiI5NDg2MzQxMDkiLCJ0b2tlbiI6Iks1QTZaQ0l4YUY4SW9WNzVqc1JRU25TazExMHRBVk53bEhncFUxL0labmhjWVhueVp1M1ZTNXJZWFNFeXJJL3UiLCJ1aW4iOiIyODkyNTQ2NjQwIn0%3D&data=lgfJc1LlkmRBMX5rhgPzlS7eDk-9lbkdK-XzbAyR6kbQnNuq2dt9DB8tgVNxs9JpHaFkoOkhrbQTe14sKgg8KQ&svctype=4&tempid=h5_group_info"
+
+/** 时间步进按钮（‹ 数值 ›） */
+@Composable
+private fun StepText(symbol: String, onClick: () -> Unit) {
+    Text(
+        symbol,
+        fontSize = 20.sp,
+        color = SubInk,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .clip(CircleShape)
+            .bounceClickable(onClick)
+            .padding(horizontal = 12.dp, vertical = 2.dp),
+    )
+}
+
+/** 下载新版 APK 到 cacheDir/update/，返回文件（失败返回 null） */
+private suspend fun downloadUpdate(
+    context: Context,
+    url: String,
+    onProgress: (Int) -> Unit,
+): File? = withContext(Dispatchers.IO) {
+    try {
+        val dir = File(context.cacheDir, "update").apply { mkdirs() }
+        val out = File(dir, "cloudrest-update.apk")
+        if (out.exists()) out.delete()
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15000
+            readTimeout = 30000
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "CloudRest-Android")
+        }
+        conn.connect()
+        val total = conn.contentLengthLong
+        conn.inputStream.use { input ->
+            out.outputStream().use { os ->
+                val buf = ByteArray(64 * 1024)
+                var got = 0L
+                var n = input.read(buf)
+                while (n > 0) {
+                    os.write(buf, 0, n)
+                    got += n
+                    if (total > 0) onProgress((got * 100 / total).toInt().coerceIn(0, 100))
+                    n = input.read(buf)
+                }
+                os.flush()
+            }
+        }
+        conn.disconnect()
+        if (out.exists() && out.length() > 100 * 1024) out else null
+    } catch (_: Exception) {
+        null
+    }
+}
+
+/** 拉起系统安装器；未授权「安装未知应用」时先引导去设置 */
+private fun launchInstall(context: Context, apk: File) {
+    if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
+        Toast.makeText(context, "请先允许「安装未知应用」再回来点一次", Toast.LENGTH_LONG).show()
+        try {
+            context.startActivity(
+                Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                    .setData(Uri.parse("package:${context.packageName}"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (_: Exception) {
+            // 忽略
+        }
+        return
+    }
+    try {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apk)
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        )
+    } catch (_: Exception) {
+        Toast.makeText(context, "没找到安装器，可以到浏览器手动安装", Toast.LENGTH_SHORT).show()
+    }
+}

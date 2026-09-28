@@ -35,22 +35,28 @@ object UpdateChecker {
         val hasUpdate: Boolean,
         val latest: String,
         val url: String,
+        /** 新版 APK 直链（拿不到则为空，此时只能跳浏览器） */
+        val apk: String,
     )
+
+    /** 从各来源解析出的版本信息 */
+    private data class Info(val tag: String, val apk: String)
 
     /** 网络请求（务必在 IO 线程调用） */
     fun check(current: String): Result {
-        val tag = fetchLatestTag() ?: return Result(false, false, "", PAGE)
-        val latest = tag.trim().removePrefix("v").removePrefix("V").trim()
+        val info = fetchLatest() ?: return Result(false, false, "", PAGE, "")
+        val latest = info.tag.trim().removePrefix("v").removePrefix("V").trim()
         val has = compare(latest, current.trim()) > 0
-        return Result(true, has, latest.ifBlank { tag.trim() }, PAGE)
+        return Result(true, has, latest.ifBlank { info.tag.trim() }, PAGE, info.apk)
     }
 
-    private fun fetchLatestTag(): String? {
-        // 1) raw version.json
+    private fun fetchLatest(): Info? {
+        // 1) raw version.json（含 apk 直链，最稳最快）
         httpGet(RAW_VERSION)?.let { body ->
             try {
-                val v = JSONObject(body).optString("version", "").trim()
-                if (v.isNotBlank()) return v
+                val o = JSONObject(body)
+                val v = o.optString("version", "").trim()
+                if (v.isNotBlank()) return Info(v, o.optString("apk", "").trim())
             } catch (_: Exception) {
                 // 继续下一级
             }
@@ -58,19 +64,27 @@ object UpdateChecker {
         // 2) tags 页面 HTML
         httpGet(TAGS_HTML)?.let { html ->
             val best = maxFromHtml(html)
-            if (best != null) return best
+            if (best != null) return Info(best, "")
         }
-        // 3) latest release
+        // 3) latest release（顺带取资产直链）
         httpGet(RELEASE_API)?.let { body ->
             try {
-                val t = JSONObject(body).optString("tag_name", "")
-                if (t.isNotBlank()) return t
+                val o = JSONObject(body)
+                val t = o.optString("tag_name", "")
+                if (t.isNotBlank()) {
+                    val assets = o.optJSONArray("assets")
+                    val apk = if (assets != null && assets.length() > 0) {
+                        assets.getJSONObject(0).optString("browser_download_url", "")
+                    } else ""
+                    return Info(t, apk)
+                }
             } catch (_: Exception) {
                 // 继续下一级
             }
         }
         // 4) tags 接口
-        return maxFromApiTags()
+        maxFromApiTags()?.let { return Info(it, "") }
+        return null
     }
 
     private val TAG_RX = Regex("""/(?:releases/tag|tree)/([A-Za-z0-9._-]+)""")
