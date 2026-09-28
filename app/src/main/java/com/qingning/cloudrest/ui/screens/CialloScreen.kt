@@ -29,7 +29,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextLayoutResult
@@ -37,6 +39,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingning.cloudrest.audio.SoundEngine
@@ -65,6 +68,14 @@ private data class Burst(
     val color: Color,
     val text: String,
     val born: Long,
+)
+
+/** 两侧羽化条：按纵向分段取当行背景色，横向渐变到透明，保证与背景无缝 */
+private data class FadeBand(
+    val y: Float,
+    val h: Float,
+    val left: Brush,
+    val right: Brush,
 )
 
 /** Ciallo 电台：原站滚动文字秀的原生复刻 + 点击爆发 */
@@ -161,12 +172,26 @@ fun CialloScreen() {
         }
         val burstLayouts = remember { HashMap<String, TextLayoutResult>() }
 
-        // 两侧羽化画刷：原先每帧都新建，改为只建一次
-        val fadeLeftBrush = remember(bgTop) {
-            Brush.horizontalGradient(listOf(bgTop, Color.Transparent), startX = 0f, endX = 60f)
-        }
-        val fadeRightBrush = remember(bgTop) {
-            Brush.horizontalGradient(listOf(Color.Transparent, bgTop), startX = 0f, endX = 60f)
+        // 两侧羽化条（尺寸变化时重建一次，不每帧新建画刷）
+        var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+        val fadeBands = remember(bgTop, bgBottom, canvasSize) {
+            val w = canvasSize.width.toFloat()
+            val h = canvasSize.height.toFloat()
+            if (w <= 0f || h <= 0f) {
+                emptyList()
+            } else {
+                val n = 12
+                val sliceH = h / n
+                (0 until n).map { i ->
+                    val c = lerp(bgTop, bgBottom, (i + 0.5f) / n)
+                    FadeBand(
+                        y = i * sliceH,
+                        h = sliceH,
+                        left = Brush.horizontalGradient(listOf(c, Color.Transparent), startX = 0f, endX = 60f),
+                        right = Brush.horizontalGradient(listOf(Color.Transparent, c), startX = w - 60f, endX = w),
+                    )
+                }
+            }
         }
 
         LaunchedEffect(Unit) {
@@ -178,6 +203,7 @@ fun CialloScreen() {
         Canvas(
             Modifier
                 .fillMaxSize()
+                .onSizeChanged { canvasSize = it }
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = { pos ->
                         val cols = listOf(
@@ -234,9 +260,11 @@ fun CialloScreen() {
                     }
                 }
             }
-            // 两侧羽化：画刷与宽度无关，只建一次
-            drawRect(fadeLeftBrush)
-            drawRect(fadeRightBrush, topLeft = Offset(w - 60f, 0f), size = Size(60f, h))
+            // 两侧羽化：逐段贴合当行背景色，横向渐隐，边缘与背景无缝
+            fadeBands.forEach { b ->
+                drawRect(b.left, topLeft = Offset(0f, b.y), size = Size(60f, b.h + 1f))
+                drawRect(b.right, topLeft = Offset(w - 60f, b.y), size = Size(60f, b.h + 1f))
+            }
         }
 
         Column(
