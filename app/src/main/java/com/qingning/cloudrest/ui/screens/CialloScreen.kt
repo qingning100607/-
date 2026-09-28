@@ -26,6 +26,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -160,6 +161,14 @@ fun CialloScreen() {
         }
         val burstLayouts = remember { HashMap<String, TextLayoutResult>() }
 
+        // 两侧羽化画刷：原先每帧都新建，改为只建一次
+        val fadeLeftBrush = remember(bgTop) {
+            Brush.horizontalGradient(listOf(bgTop, Color.Transparent), startX = 0f, endX = 60f)
+        }
+        val fadeRightBrush = remember(bgTop) {
+            Brush.horizontalGradient(listOf(Color.Transparent, bgTop), startX = 0f, endX = 60f)
+        }
+
         LaunchedEffect(Unit) {
             while (true) {
                 withFrameNanos { t = it }
@@ -213,18 +222,21 @@ fun CialloScreen() {
                     val x = b.x + b.vx * age
                     val y = b.y + b.vy * age + 0.5f * 420f * age * age
                     val alpha = (1f - age / 1.4f).coerceIn(0f, 1f)
-                    val layout = burstLayouts.getOrPut(b.text) {
-                        textMeasurer.measure(
-                            b.text,
-                            TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold),
-                        )
+                    // 画面外的粒子直接跳过；快要淡出的也跳过，省下大量 drawText
+                    if (alpha > 0.08f && x > -260f && x < w + 260f && y > -260f && y < h + 260f) {
+                        val layout = burstLayouts.getOrPut(b.text) {
+                            textMeasurer.measure(
+                                b.text,
+                                TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+                            )
+                        }
+                        drawText(layout, color = b.color, topLeft = Offset(x, y), alpha = alpha)
                     }
-                    drawText(layout, color = b.color, topLeft = Offset(x, y), alpha = alpha)
                 }
             }
-            val fade = 60f
-            drawRect(Brush.horizontalGradient(listOf(bgTop, Color.Transparent), startX = 0f, endX = fade))
-            drawRect(Brush.horizontalGradient(listOf(Color.Transparent, bgTop), startX = w - fade, endX = w))
+            // 两侧羽化：画刷与宽度无关，只建一次
+            drawRect(fadeLeftBrush)
+            drawRect(fadeRightBrush, topLeft = Offset(w - 60f, 0f), size = Size(60f, h))
         }
 
         Column(
