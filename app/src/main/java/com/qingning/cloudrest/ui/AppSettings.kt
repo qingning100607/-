@@ -66,6 +66,10 @@ object AppSettings {
     var reminderMinute: Int by mutableStateOf(0)
         private set
 
+    /** 用户已忽略的更新版本号（主页横幅点「忽略」后不再提示） */
+    var ignoredUpdate: String? by mutableStateOf(null)
+        private set
+
     fun init(context: Context) {
         if (prefs != null) return
         prefs = context.applicationContext.getSharedPreferences("cloud_rest_settings", Context.MODE_PRIVATE)
@@ -88,6 +92,7 @@ object AppSettings {
         reminderOn = p.getBoolean("reminder_on", false)
         reminderHour = p.getInt("reminder_hour", 21).coerceIn(0, 23)
         reminderMinute = p.getInt("reminder_minute", 0).coerceIn(0, 59)
+        ignoredUpdate = p.getString("ignored_update", null)
     }
 
     fun updateBackground(path: String?) {
@@ -158,6 +163,14 @@ object AppSettings {
             ?.putInt("reminder_hour", reminderHour)
             ?.putInt("reminder_minute", reminderMinute)
             ?.apply()
+    }
+
+    /** 记录/清除已忽略的更新版本 */
+    fun updateIgnoredUpdate(v: String?) {
+        ignoredUpdate = v
+        prefs?.edit()?.apply {
+            if (v == null) remove("ignored_update") else putString("ignored_update", v)
+        }?.apply()
     }
 
     /** 自动夜间：跨过 22:00 / 7:00 边界时自动切换一次（窗口内尊重手动调整） */

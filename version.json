@@ -1,6 +1,6 @@
 {
-  "version": "1.10.0",
-  "note": "贴心版：心情日历翻月补签、每日心情提醒、心情小札统计、应用内下载更新、备份版本校验、跨零点刷新修复",
+  "version": "1.11.0",
+  "note": "高刷版：Ciallo 电台自动切最高刷新率；主页新增「发现新版本」提示",
   "url": "https://github.com/qingning100607/-/releases/latest",
-  "apk": "https://github.com/qingning100607/-/releases/download/v1.10.0/CloudRest-v1.10.0.apk"
+  "apk": "https://github.com/qingning100607/-/releases/download/v1.11.0/CloudRest-v1.11.0.apk"
 }

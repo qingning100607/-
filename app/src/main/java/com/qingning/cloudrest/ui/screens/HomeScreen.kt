@@ -1,5 +1,8 @@
 package com.qingning.cloudrest.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -29,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.qingning.cloudrest.audio.SoundEngine
@@ -55,7 +61,10 @@ import com.qingning.cloudrest.ui.theme.RosePink
 import com.qingning.cloudrest.ui.theme.SubInk
 import com.qingning.cloudrest.ui.theme.SunsetBrush
 import com.qingning.cloudrest.ui.theme.SunsetBrushSoft
+import com.qingning.cloudrest.update.UpdateBroadcast
+import com.qingning.cloudrest.update.UpdateInstaller
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -64,6 +73,17 @@ import java.util.Locale
 @Composable
 fun HomeScreen(onOpenKarmaCal: () -> Unit, onOpenFortune: () -> Unit, onOpenAchievements: () -> Unit) {
     val scroll = rememberScrollState()
+    val ctx = LocalContext.current
+    val version = remember {
+        try {
+            ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: ""
+        } catch (_: Exception) {
+            ""
+        }
+    }
+    var upDownloading by remember { mutableStateOf(false) }
+    var upProgress by remember { mutableStateOf(0) }
+    val upScope = rememberCoroutineScope()
     Box(Modifier.fillMaxSize()) {
     Column(
         Modifier
@@ -91,6 +111,44 @@ fun HomeScreen(onOpenKarmaCal: () -> Unit, onOpenFortune: () -> Unit, onOpenAchi
             style = MaterialTheme.typography.headlineLarge,
             color = Ink,
         )
+        if (UpdateBroadcast.hasNew(version)) {
+            Spacer(Modifier.height(14.dp))
+            UpdateBanner(
+                version = UpdateBroadcast.found?.latest.orEmpty(),
+                downloading = upDownloading,
+                progress = upProgress,
+                onUpdate = {
+                    val r = UpdateBroadcast.found
+                    if (r == null) {
+                        // 理论上不会走到，兜底空操作
+                    } else if (r.apk.isBlank()) {
+                        // 没有 APK 直链（例如仅从 tags 兜底得知新版本）→ 跳浏览器
+                        try {
+                            ctx.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse(r.url))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        } catch (_: Exception) {
+                            Toast.makeText(ctx, "打不开浏览器，下载页：${r.url}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        upDownloading = true
+                        upProgress = 0
+                        SoundEngine.tick()
+                        upScope.launch {
+                            val f = UpdateInstaller.download(ctx, r.apk) { upProgress = it }
+                            upDownloading = false
+                            if (f != null) {
+                                UpdateInstaller.install(ctx, f)
+                            } else {
+                                Toast.makeText(ctx, "下载没成功，检查一下网络再试试", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                },
+                onIgnore = { UpdateBroadcast.found?.latest?.let { UpdateBroadcast.ignore(it) } },
+            )
+        }
         Spacer(Modifier.height(18.dp))
         QuoteCard()
         Spacer(Modifier.height(14.dp))
@@ -482,5 +540,70 @@ private fun SceneChip(label: String, modifier: Modifier = Modifier, onClick: () 
         contentAlignment = Alignment.Center,
     ) {
         Text(label, fontSize = 12.sp, color = Ink, maxLines = 1)
+    }
+}
+
+/** 主页「发现新版本」提示：一键应用内下载安装，或忽略该版本 */
+@Composable
+private fun UpdateBanner(
+    version: String,
+    downloading: Boolean,
+    progress: Int,
+    onUpdate: () -> Unit,
+    onIgnore: () -> Unit,
+) {
+    SoftCard(brush = SunsetBrush) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("🎉", fontSize = 22.sp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "发现新版本 v$version",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    if (downloading) "正在下载 $progress%" else "新版本已准备好，点右侧一键更新",
+                    fontSize = 12.sp,
+                    color = Color(0xE6FFFFFF),
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                if (downloading) "$progress%" else "更新",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = RosePink,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .bounceClickable { if (!downloading) onUpdate() },
+            )
+        }
+        if (downloading) {
+            Spacer(Modifier.height(10.dp))
+            LinearProgressIndicator(
+                progress = { progress / 100f },
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                trackColor = Color(0x40FFFFFF),
+            )
+        } else {
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text(
+                    "忽略此版本",
+                    fontSize = 11.sp,
+                    color = Color(0xB3FFFFFF),
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .bounceClickable(onIgnore),
+                )
+            }
+        }
     }
 }

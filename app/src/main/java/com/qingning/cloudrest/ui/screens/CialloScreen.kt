@@ -1,5 +1,9 @@
 package com.qingning.cloudrest.ui.screens
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -12,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -67,6 +73,59 @@ fun CialloScreen() {
     val bgBottom = if (com.qingning.cloudrest.ui.AppSettings.deepNight) Color(0xFF2C2340) else Color(0xFFF6ECF6)
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(bgTop, bgBottom)))) {
         val density = LocalDensity.current
+
+        // 强制最高刷新率（如 120Hz）：本页逐帧滚动，若停留在 60Hz 会显得发顿
+        val activityCtx = LocalContext.current
+        DisposableEffect(Unit) {
+            val activity = activityCtx.findActivity()
+            val window = activity?.window
+            val prevModeId = window?.attributes?.preferredDisplayModeId ?: 0
+            val prevRate = window?.attributes?.preferredRefreshRate ?: 0f
+            if (activity != null && window != null) {
+                @Suppress("DEPRECATION")
+                val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    activity.display
+                } else {
+                    window.windowManager.defaultDisplay
+                }
+                val cur = display?.mode
+                var bestId = 0
+                var bestRate = 0f
+                // 优先挑「与当前分辨率相同」的最高刷新率模式，避免改分辨率导致画面跳变
+                display?.supportedModes?.forEach { m ->
+                    val sameSize = cur == null ||
+                        (m.physicalWidth == cur.physicalWidth && m.physicalHeight == cur.physicalHeight)
+                    if (sameSize && m.refreshRate > bestRate + 0.1f) {
+                        bestRate = m.refreshRate
+                        bestId = m.modeId
+                    }
+                }
+                // 兜底：全局最高刷新率
+                if (bestId == 0) {
+                    display?.supportedModes?.forEach { m ->
+                        if (m.refreshRate > bestRate + 0.1f) {
+                            bestRate = m.refreshRate
+                            bestId = m.modeId
+                        }
+                    }
+                }
+                if (bestId != 0) {
+                    val a = window.attributes
+                    a.preferredDisplayModeId = bestId
+                    a.preferredRefreshRate = bestRate
+                    window.attributes = a
+                }
+            }
+            onDispose {
+                if (window != null) {
+                    val a = window.attributes
+                    a.preferredDisplayModeId = prevModeId
+                    a.preferredRefreshRate = prevRate
+                    window.attributes = a
+                }
+            }
+        }
+
         val textMeasurer = rememberTextMeasurer()
         var t by remember { mutableStateOf(0L) }
         var bursts by remember { mutableStateOf(listOf<Burst>()) }
@@ -188,4 +247,14 @@ fun CialloScreen() {
             Text("点屏幕，放一串 Ciallo～（每次随机一种口味）", fontSize = 13.sp, color = SubInk)
         }
     }
+}
+
+/** 从 Compose 的 Context 里向上找到宿主 Activity */
+private fun Context.findActivity(): Activity? {
+    var c: Context? = this
+    while (c is ContextWrapper) {
+        if (c is Activity) return c
+        c = c.baseContext
+    }
+    return null
 }

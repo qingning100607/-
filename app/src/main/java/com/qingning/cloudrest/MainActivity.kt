@@ -81,6 +81,7 @@ import com.qingning.cloudrest.ui.theme.GlassBg
 import com.qingning.cloudrest.ui.theme.Ink
 import com.qingning.cloudrest.ui.theme.SubInk
 import com.qingning.cloudrest.ui.theme.SunsetBrush
+import com.qingning.cloudrest.update.UpdateBroadcast
 import com.qingning.cloudrest.widget.CloudWidget
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -188,6 +189,18 @@ fun CloudApp(initialOpen: String? = null, consumeOpen: () -> Unit = {}) {
             AppSettings.autoNightTick()
             delay(30_000)
         }
+    }
+
+    // 启动时静默检查一次更新（节流：同次启动仅一次、间隔 ≥30 分钟）
+    val appVersion = remember {
+        try {
+            appCtx.packageManager.getPackageInfo(appCtx.packageName, 0).versionName ?: ""
+        } catch (_: Exception) {
+            ""
+        }
+    }
+    LaunchedEffect(appVersion) {
+        UpdateBroadcast.checkThrottled(appVersion)
     }
 
     // 普通返回：非首页 Tab → 回休息厅（不带滑动层的场景）
