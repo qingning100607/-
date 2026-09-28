@@ -6,8 +6,14 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * 检查更新：直接问 GitHub 仓库有没有比当前版本更高的 tag / release。
- * 仓库为空或未发布时不会崩，只是返回「检查失败」，由界面给出友好提示。
+ * 检查更新：从 GitHub 仓库读取最新版本号。
+ *
+ * 取数顺序（前一个成功就不再往后问）：
+ *  1. 仓库根目录的 version.json（raw 静态文件，最稳、不限流）
+ *  2. GitHub Release 的 latest
+ *  3. 仓库 tag 列表
+ *
+ * 全部失败会返回 ok = false，由界面给出友好提示，绝不崩溃。
  */
 object UpdateChecker {
 
@@ -16,6 +22,8 @@ object UpdateChecker {
 
     const val PAGE = "https://github.com/$REPO"
 
+    private const val RAW_MAIN = "https://raw.githubusercontent.com/$REPO/main/version.json"
+    private const val RAW_MASTER = "https://raw.githubusercontent.com/$REPO/master/version.json"
     private const val RELEASE_API = "https://api.github.com/repos/$REPO/releases/latest"
     private const val TAGS_API = "https://api.github.com/repos/$REPO/tags"
 
@@ -28,18 +36,41 @@ object UpdateChecker {
 
     /** 网络请求（务必在 IO 线程调用） */
     fun check(current: String): Result {
-        val tag = fetchLatestTag()
-        if (tag == null) {
-            return Result(false, false, "", PAGE)
+        val cur = current.trim()
+
+        val manifest = readManifest()
+        if (manifest != null) {
+            val (v, u) = manifest
+            return Result(true, compare(v, cur) > 0, v, u)
         }
-        val latest = tag.trim().removePrefix("v").removePrefix("V").trim()
-        val has = compare(latest, current.trim()) > 0
-        return Result(true, has, latest.ifBlank { tag.trim() }, PAGE)
+
+        val tag = latestTag() ?: return Result(false, false, "", PAGE)
+        val v = tag.trim().removePrefix("v").removePrefix("V").trim()
+        if (v.isBlank()) return Result(false, false, "", PAGE)
+        return Result(true, compare(v, cur) > 0, v, PAGE)
+    }
+
+    /** 读取仓库里的 version.json，拿到 (版本号, 下载页) */
+    private fun readManifest(): Pair<String, String>? {
+        for (raw in listOf(RAW_MAIN, RAW_MASTER)) {
+            val body = httpGet(raw, "text/plain") ?: continue
+            try {
+                val json = JSONObject(body)
+                val v = json.optString("version", "").trim()
+                if (v.isNotBlank()) {
+                    val u = json.optString("url", "").trim()
+                    return v to u.ifBlank { PAGE }
+                }
+            } catch (_: Exception) {
+                // 换下一个源
+            }
+        }
+        return null
     }
 
     /** 先取 latest release，失败则退回 tags 列表 */
-    private fun fetchLatestTag(): String? {
-        val rel = httpGet(RELEASE_API)
+    private fun latestTag(): String? {
+        val rel = httpGet(RELEASE_API, "application/vnd.github+json")
         if (rel != null) {
             try {
                 val t = JSONObject(rel).optString("tag_name", "")
@@ -48,7 +79,7 @@ object UpdateChecker {
                 // 落到 tags 分支
             }
         }
-        val tags = httpGet(TAGS_API) ?: return null
+        val tags = httpGet(TAGS_API, "application/vnd.github+json") ?: return null
         return try {
             val arr = JSONArray(tags)
             if (arr.length() == 0) null else arr.getJSONObject(0).optString("name", "").ifBlank { null }
@@ -57,14 +88,14 @@ object UpdateChecker {
         }
     }
 
-    private fun httpGet(url: String): String? {
+    private fun httpGet(url: String, accept: String): String? {
         var conn: HttpURLConnection? = null
         return try {
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 8000
                 readTimeout = 8000
                 requestMethod = "GET"
-                setRequestProperty("Accept", "application/vnd.github+json")
+                setRequestProperty("Accept", accept)
                 setRequestProperty("User-Agent", "CloudRest-Android")
             }
             if (conn.responseCode != 200) {
