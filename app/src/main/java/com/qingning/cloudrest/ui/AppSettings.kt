@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.qingning.cloudrest.data.Prefs
 
 /** 应用设置：自定义背景、模糊、遮罩、触感。全部持久化 + Compose 响应式。 */
 object AppSettings {
@@ -79,20 +80,20 @@ object AppSettings {
     /** 重新从本地读取全部设置（导入备份后调用） */
     fun refresh() {
         val p = prefs ?: return
-        bgPath = p.getString("bg_path", null)
-        blur = p.getFloat("blur", 0.55f)
-        dim = p.getFloat("dim", 0.72f)
-        hapticsLevel = p.getString("haptics_level", if (p.getBoolean("haptics", true)) "strong" else "off") ?: "strong"
-        muyuTone = p.getString("muyu_tone", "crisp") ?: "crisp"
-        sfxVolume = p.getFloat("sfx_volume", 1f)
-        deepNight = p.getBoolean("deep_night", false)
-        season = p.getString("season", "off") ?: "off"
-        autoNight = p.getBoolean("auto_night", false)
-        bellGuide = p.getBoolean("bell_guide", true)
-        reminderOn = p.getBoolean("reminder_on", false)
-        reminderHour = p.getInt("reminder_hour", 21).coerceIn(0, 23)
-        reminderMinute = p.getInt("reminder_minute", 0).coerceIn(0, 59)
-        ignoredUpdate = p.getString("ignored_update", null)
+        bgPath = Prefs.getString(p, "bg_path", null)
+        blur = Prefs.getFloat(p, "blur", 0.55f)
+        dim = Prefs.getFloat(p, "dim", 0.72f)
+        hapticsLevel = Prefs.getString(p, "haptics_level", if (Prefs.getBoolean(p, "haptics", true)) "strong" else "off") ?: "strong"
+        muyuTone = Prefs.getString(p, "muyu_tone", "crisp") ?: "crisp"
+        sfxVolume = Prefs.getFloat(p, "sfx_volume", 1f)
+        deepNight = Prefs.getBoolean(p, "deep_night", false)
+        season = Prefs.getString(p, "season", "off") ?: "off"
+        autoNight = Prefs.getBoolean(p, "auto_night", false)
+        bellGuide = Prefs.getBoolean(p, "bell_guide", true)
+        reminderOn = Prefs.getBoolean(p, "reminder_on", false)
+        reminderHour = Prefs.getInt(p, "reminder_hour", 21).coerceIn(0, 23)
+        reminderMinute = Prefs.getInt(p, "reminder_minute", 0).coerceIn(0, 59)
+        ignoredUpdate = Prefs.getString(p, "ignored_update", null)
     }
 
     fun updateBackground(path: String?) {
@@ -179,7 +180,7 @@ object AppSettings {
         val p = prefs ?: return
         val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
         val want = if (h >= 22 || h < 7) "night" else "day"
-        if (p.getString("auto_night_state", "") != want) {
+        if (Prefs.getString(p, "auto_night_state", "") != want) {
             p.edit().putString("auto_night_state", want).apply()
             if (want == "night" && !deepNight) updateDeepNight(true)
             if (want == "day" && deepNight) updateDeepNight(false)

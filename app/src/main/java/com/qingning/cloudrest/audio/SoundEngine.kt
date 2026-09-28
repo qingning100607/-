@@ -7,6 +7,7 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.media.SoundPool
+import com.qingning.cloudrest.data.Prefs
 import com.qingning.cloudrest.ui.AppSettings
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -174,7 +175,7 @@ object SoundEngine {
     private fun loadChannelGains(ctx: Context) {
         val p = ctx.getSharedPreferences("cloud_rest_channels", Context.MODE_PRIVATE)
         SoundType.entries.forEach { ch ->
-            channelGain[ch] = p.getFloat("g_" + ch.name, 0.7f)
+            channelGain[ch] = Prefs.getFloat(p, "g_" + ch.name, 0.7f)
         }
     }
 

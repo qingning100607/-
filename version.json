@@ -1,6 +1,6 @@
 {
-  "version": "1.11.1",
-  "note": "顺边版：修复 Ciallo 电台右边缘不透明竖带，两侧羽化贴合背景色",
+  "version": "1.11.2",
+  "note": "稳当版：修复导入备份后 App 启动即闪退（SharedPreferences 类型漂移）",
   "url": "https://github.com/qingning100607/-/releases/latest",
-  "apk": "https://github.com/qingning100607/-/releases/download/v1.11.1/CloudRest-v1.11.1.apk"
+  "apk": "https://github.com/qingning100607/-/releases/download/v1.11.2/CloudRest-v1.11.2.apk"
 }

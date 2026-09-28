@@ -19,57 +19,58 @@ object Store {
 
     // 电子木鱼功德
     var karma: Long
-        get() = p().getLong("karma", 0)
+        get() = Prefs.getLong(p(), "karma", 0)
         set(v) { p().edit().putLong("karma", v).apply() }
 
     // 解压统计
     var bubbles: Long
-        get() = p().getLong("bubbles", 0)
+        get() = Prefs.getLong(p(), "bubbles", 0)
         set(v) { p().edit().putLong("bubbles", v).apply() }
 
     var fireworks: Int
-        get() = p().getInt("fireworks", 0)
+        get() = Prefs.getInt(p(), "fireworks", 0)
         set(v) { p().edit().putInt("fireworks", v).apply() }
 
     var shredded: Int
-        get() = p().getInt("shredded", 0)
+        get() = Prefs.getInt(p(), "shredded", 0)
         set(v) { p().edit().putInt("shredded", v).apply() }
 
     var iceBroken: Int
-        get() = p().getInt("ice_broken", 0)
+        get() = Prefs.getInt(p(), "ice_broken", 0)
         set(v) { p().edit().putInt("ice_broken", v).apply() }
 
     // 木鱼累计敲击次数
     var muyu: Long
-        get() = p().getLong("muyu", 0)
+        get() = Prefs.getLong(p(), "muyu", 0)
         set(v) { p().edit().putLong("muyu", v).apply() }
 
     // 呼吸引导完成轮次
     var breathRounds: Long
-        get() = p().getLong("breath_rounds", 0)
+        get() = Prefs.getLong(p(), "breath_rounds", 0)
         set(v) { p().edit().putLong("breath_rounds", v).apply() }
 
     // 打水漂最高连跳纪录
     var stoneBest: Int
-        get() = p().getInt("stone_best", 0)
+        get() = Prefs.getInt(p(), "stone_best", 0)
         set(v) { p().edit().putInt("stone_best", v).apply() }
 
     // 功德按日累计（功德打卡日历用）
     fun addKarma(n: Long = 1) {
         val k = "kday_" + todayKey()
         p().edit()
-            .putLong("karma", p().getLong("karma", 0) + n)
-            .putLong(k, p().getLong(k, 0) + n)
+            .putLong("karma", Prefs.getLong(p(), "karma", 0) + n)
+            .putLong(k, Prefs.getLong(p(), k, 0) + n)
             .apply()
     }
 
-    fun karmaOf(dateKey: String): Long = p().getLong("kday_$dateKey", 0)
+    fun karmaOf(dateKey: String): Long = Prefs.getLong(p(), "kday_$dateKey", 0)
 
     fun karmaMap(year: Int, month: Int): Map<String, Long> {
         val prefix = "kday_%04d-%02d".format(year, month)
         val r = HashMap<String, Long>()
         p().all.filterKeys { it.startsWith(prefix) }.forEach { (k, v) ->
-            if (v is Long && v > 0) r[k.removePrefix("kday_")] = v
+            val n = Prefs.asLong(v) ?: 0L
+            if (n > 0) r[k.removePrefix("kday_")] = n
         }
         return r
     }
@@ -93,7 +94,7 @@ object Store {
         p().edit().putInt("mood_$dateKey", mood).apply()
     }
 
-    fun moodOf(dateKey: String): Int = p().getInt("mood_$dateKey", 0)
+    fun moodOf(dateKey: String): Int = Prefs.getInt(p(), "mood_$dateKey", 0)
 
     /** 补签：把某天标记为「补签记录」（保存非今日心情时打上） */
     fun setMoodBackfilled(dateKey: String) {
@@ -147,7 +148,8 @@ object Store {
     fun moodTop(): Int {
         val counts = IntArray(6)
         p().all.forEach { (k, v) ->
-            if (k.startsWith("mood_") && v is Int && v in 1..5) counts[v] += 1
+            val m = Prefs.asInt(v) ?: 0
+            if (k.startsWith("mood_") && m in 1..5) counts[m] += 1
         }
         var best = 0
         for (i in 1..5) if (counts[i] > counts[best]) best = i
@@ -195,22 +197,23 @@ object Store {
     }
 
     // 每日云签：key = yyyy-MM-dd，value = 签文序号（-1 = 未抽）
-    fun fortuneOf(dateKey: String): Int = p().getInt("fortune_$dateKey", -1)
+    fun fortuneOf(dateKey: String): Int = Prefs.getInt(p(), "fortune_$dateKey", -1)
 
     fun setFortune(dateKey: String, idx: Int) {
         p().edit().putInt("fortune_$dateKey", idx).apply()
     }
 
     /** 累计抽签天数（成就用） */
-    fun fortuneDays(): Int = p().all.entries.count { it.key.startsWith("fortune_") && (it.value as? Int ?: -1) >= 0 }
+    fun fortuneDays(): Int =
+        p().all.entries.count { it.key.startsWith("fortune_") && (Prefs.asInt(it.value) ?: -1) >= 0 }
 
     // 云朵小精灵：上次见面时间戳
-    fun petLastSeen(): Long = p().getLong("pet_last_seen", 0L)
+    fun petLastSeen(): Long = Prefs.getLong(p(), "pet_last_seen", 0L)
     fun setPetLastSeen(t: Long) { p().edit().putLong("pet_last_seen", t).apply() }
 
     // 音景预设：每行一条 "名字\tspec"
     fun scenes(): List<Pair<String, String>> =
-        (p().getString("scenes", "") ?: "").split("\n").mapNotNull { line ->
+        (Prefs.getString(p(), "scenes", "") ?: "").split("\n").mapNotNull { line ->
             val i = line.indexOf('\t')
             if (i <= 0) null else line.substring(0, i) to line.substring(i + 1)
         }
@@ -230,7 +233,8 @@ object Store {
         val prefix = "mood_%04d-%02d".format(year, month)
         val result = HashMap<String, Int>()
         p().all.filterKeys { it.startsWith(prefix) }.forEach { (k, v) ->
-            if (v is Int && v in 1..5) result[k.removePrefix("mood_")] = v
+            val m = Prefs.asInt(v) ?: 0
+            if (m in 1..5) result[k.removePrefix("mood_")] = m
         }
         return result
     }

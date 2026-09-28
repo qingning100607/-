@@ -69,7 +69,9 @@ object Backup {
             val k = it.next()
             when (val v = o.get(k)) {
                 is Boolean -> e.putBoolean(k, v)
-                is Int -> e.putInt(k, v)
+                // JSON 数字没有宽度信息，整数一律按 Long 存：读取侧（Prefs）会做类型归一，
+                // 这样就不会再出现「存成 Int、代码却 getLong」导致启动闪退的问题。
+                is Int -> e.putLong(k, v.toLong())
                 is Long -> e.putLong(k, v)
                 is Double -> e.putFloat(k, v.toFloat())
                 is String -> e.putString(k, v)
